@@ -77,3 +77,27 @@ export async function sendFriendRequest(
 
   return { error: null };
 }
+
+export type FriendshipStatus = 'none' | 'pending' | 'accepted';
+
+/**
+ * Statut de la relation entre `currentUserId` et `otherUserId`, dans
+ * n'importe quel sens (peu importe qui a envoyé la demande) — voir
+ * src/app/profile/[id].tsx.
+ */
+export async function getFriendshipStatus(
+  currentUserId: string,
+  otherUserId: string,
+): Promise<FriendshipStatus> {
+  if (!isSupabaseConfigured) return 'none';
+
+  const { data } = await supabase
+    .from('friends')
+    .select('status')
+    .or(
+      `and(user_id.eq.${currentUserId},friend_id.eq.${otherUserId}),and(user_id.eq.${otherUserId},friend_id.eq.${currentUserId})`,
+    )
+    .maybeSingle();
+
+  return (data?.status as FriendshipStatus | undefined) ?? 'none';
+}

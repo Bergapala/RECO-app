@@ -92,7 +92,7 @@ export async function fetchFeedRecos(currentUserId: string | null): Promise<Feed
 
   const { data, error } = await supabase
     .from('recos')
-    .select('id, titre, commentaire, apercu_image, categorie, created_at, user_id, users(id, prenom, photo_url), reactions(type, user_id)')
+    .select(RECO_SELECT)
     .in('user_id', friendIds)
     .order('created_at', { ascending: false });
 
@@ -100,7 +100,14 @@ export async function fetchFeedRecos(currentUserId: string | null): Promise<Feed
     return [];
   }
 
-  return (data as unknown as RecoRow[]).map((row) => {
+  return mapRecoRows(data as unknown as RecoRow[], currentUserId);
+}
+
+const RECO_SELECT =
+  'id, titre, commentaire, apercu_image, categorie, created_at, user_id, users(id, prenom, photo_url), reactions(type, user_id)';
+
+function mapRecoRows(rows: RecoRow[], viewerId: string | null): FeedReco[] {
+  return rows.map((row) => {
     const reactions = row.reactions ?? [];
     return {
       id: row.id,
@@ -116,8 +123,34 @@ export async function fetchFeedRecos(currentUserId: string | null): Promise<Feed
       },
       likeCount: reactions.filter((r) => r.type === 'like').length,
       discoveredCount: reactions.filter((r) => r.type === 'discovered').length,
-      hasLiked: reactions.some((r) => r.type === 'like' && r.user_id === currentUserId),
-      hasDiscovered: reactions.some((r) => r.type === 'discovered' && r.user_id === currentUserId),
+      hasLiked: reactions.some((r) => r.type === 'like' && r.user_id === viewerId),
+      hasDiscovered: reactions.some((r) => r.type === 'discovered' && r.user_id === viewerId),
     };
   });
+}
+
+/**
+ * Recos publiées par `authorId` (utilisé pour "mon profil" et le profil
+ * d'un pote), triées par date décroissante, avec l'état des réactions
+ * relatif à `viewerId` (la personne qui consulte l'écran).
+ */
+export async function fetchRecosByAuthor(
+  authorId: string,
+  viewerId: string | null,
+): Promise<FeedReco[]> {
+  if (!isSupabaseConfigured) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('recos')
+    .select(RECO_SELECT)
+    .eq('user_id', authorId)
+    .order('created_at', { ascending: false });
+
+  if (error || !data) {
+    return [];
+  }
+
+  return mapRecoRows(data as unknown as RecoRow[], viewerId);
 }

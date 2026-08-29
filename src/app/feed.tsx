@@ -6,8 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
 import { RecoCard } from '@/components/RecoCard';
+import { useRecoReactions } from '@/hooks/use-reco-reactions';
 import { getCurrentUserId } from '@/lib/auth';
-import { toggleReaction } from '@/lib/reactions';
 import { fetchFeedRecos, type FeedReco } from '@/lib/recos';
 import { theme } from '@/theme';
 
@@ -18,6 +18,8 @@ export default function FeedScreen() {
   const [recos, setRecos] = useState<FeedReco[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const { onToggleLike, onToggleDiscovered } = useRecoReactions(setRecos, currentUserId);
 
   const loadFeed = useCallback(async (userId: string | null) => {
     const feed = await fetchFeedRecos(userId);
@@ -36,67 +38,6 @@ export default function FeedScreen() {
     setRefreshing(true);
     await loadFeed(currentUserId);
     setRefreshing(false);
-  }
-
-  async function handleToggleLike(reco: FeedReco) {
-    if (!currentUserId) return;
-
-    const wasLiked = reco.hasLiked;
-    setRecos((current) =>
-      current.map((item) =>
-        item.id === reco.id
-          ? {
-              ...item,
-              hasLiked: !wasLiked,
-              likeCount: item.likeCount + (wasLiked ? -1 : 1),
-            }
-          : item,
-      ),
-    );
-
-    const { active } = await toggleReaction(reco.id, currentUserId, 'like', wasLiked);
-    if (active === wasLiked) {
-      // L'appel a échoué : on annule la mise à jour optimiste.
-      setRecos((current) =>
-        current.map((item) =>
-          item.id === reco.id
-            ? { ...item, hasLiked: wasLiked, likeCount: item.likeCount + (wasLiked ? 1 : -1) }
-            : item,
-        ),
-      );
-    }
-  }
-
-  async function handleToggleDiscovered(reco: FeedReco) {
-    if (!currentUserId) return;
-
-    const wasDiscovered = reco.hasDiscovered;
-    setRecos((current) =>
-      current.map((item) =>
-        item.id === reco.id
-          ? {
-              ...item,
-              hasDiscovered: !wasDiscovered,
-              discoveredCount: item.discoveredCount + (wasDiscovered ? -1 : 1),
-            }
-          : item,
-      ),
-    );
-
-    const { active } = await toggleReaction(reco.id, currentUserId, 'discovered', wasDiscovered);
-    if (active === wasDiscovered) {
-      setRecos((current) =>
-        current.map((item) =>
-          item.id === reco.id
-            ? {
-                ...item,
-                hasDiscovered: wasDiscovered,
-                discoveredCount: item.discoveredCount + (wasDiscovered ? 1 : -1),
-              }
-            : item,
-        ),
-      );
-    }
   }
 
   return (
@@ -124,8 +65,9 @@ export default function FeedScreen() {
           renderItem={({ item }) => (
             <RecoCard
               reco={item}
-              onToggleLike={handleToggleLike}
-              onToggleDiscovered={handleToggleDiscovered}
+              onToggleLike={onToggleLike}
+              onToggleDiscovered={onToggleDiscovered}
+              currentUserId={currentUserId}
             />
           )}
           ListEmptyComponent={

@@ -11,11 +11,20 @@ type RecoCardProps = {
   reco: FeedReco;
   onToggleLike: (reco: FeedReco) => void;
   onToggleDiscovered: (reco: FeedReco) => void;
+  /** Pour rediriger vers "mon profil" plutôt que /profile/[id] quand on
+   * clique sur son propre nom (ex. dans la liste de son propre profil). */
+  currentUserId?: string | null;
 };
 
-export function RecoCard({ reco, onToggleLike, onToggleDiscovered }: RecoCardProps) {
+export function RecoCard({
+  reco,
+  onToggleLike,
+  onToggleDiscovered,
+  currentUserId,
+}: RecoCardProps) {
   const router = useRouter();
   const authorInitial = (reco.author.prenom ?? '?').trim().charAt(0).toUpperCase();
+  const isOwnReco = reco.author.id === currentUserId;
 
   return (
     <Pressable
@@ -47,7 +56,9 @@ export function RecoCard({ reco, onToggleLike, onToggleDiscovered }: RecoCardPro
         )}
 
         <Pressable
-          onPress={() => router.push(`/profile/${reco.author.id}`)}
+          onPress={() =>
+            router.push(isOwnReco ? '/profile' : `/profile/${reco.author.id}`)
+          }
           hitSlop={8}
           style={styles.authorRow}>
           {reco.author.photoUrl ? (

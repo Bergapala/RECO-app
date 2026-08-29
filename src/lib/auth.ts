@@ -59,3 +59,9 @@ export async function getCurrentUserId(): Promise<string | null> {
   const { data } = await supabase.auth.getUser();
   return data.user?.id ?? null;
 }
+
+/** Déconnecte l'utilisateur (voir src/app/settings.tsx). */
+export async function signOut(): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  await supabase.auth.signOut();
+}
