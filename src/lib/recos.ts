@@ -1,5 +1,32 @@
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
+export type NewReco = {
+  userId: string;
+  titre: string;
+  url: string | null;
+  apercuImage: string | null;
+  commentaire: string;
+  categorie: string;
+};
+
+/** Publie une nouvelle reco (voir src/app/add-reco.tsx). */
+export async function createReco(reco: NewReco): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured) {
+    return { error: "Supabase n'est pas encore configuré (voir .env.example)." };
+  }
+
+  const { error } = await supabase.from('recos').insert({
+    user_id: reco.userId,
+    titre: reco.titre,
+    url: reco.url,
+    apercu_image: reco.apercuImage,
+    commentaire: reco.commentaire,
+    categorie: reco.categorie,
+  });
+
+  return { error: error?.message ?? null };
+}
+
 export type FeedReco = {
   id: string;
   titre: string;

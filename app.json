@@ -33,7 +33,13 @@
           "imageWidth": 76
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "RECO a besoin d'accéder à tes photos pour illustrer une reco."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
