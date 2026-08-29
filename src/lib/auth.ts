@@ -17,6 +17,23 @@ export async function signInWithEmail(email: string, password: string): Promise<
 }
 
 /**
+ * Crée un compte via Supabase Auth (email + mot de passe).
+ *
+ * Si la confirmation d'email est activée sur le projet Supabase (Auth >
+ * Providers > Email), le compte est créé mais sans session active tant que
+ * le lien de confirmation n'a pas été cliqué — `hasActiveSession()` renverra
+ * `false` jusque-là même si `signUpWithEmail` n'a pas retourné d'erreur.
+ */
+export async function signUpWithEmail(email: string, password: string): Promise<AuthResult> {
+  if (!isSupabaseConfigured) {
+    return { error: "Supabase n'est pas encore configuré (voir .env.example)." };
+  }
+
+  const { error } = await supabase.auth.signUp({ email, password });
+  return { error: error?.message ?? null };
+}
+
+/**
  * Utilisé au démarrage de l'app (voir src/app/index.tsx) pour savoir si un
  * utilisateur a déjà une session active et doit être envoyé directement vers
  * le feed plutôt que vers l'écran de connexion.

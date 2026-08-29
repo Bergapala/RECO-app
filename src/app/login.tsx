@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
-import { signInWithEmail } from '@/lib/auth';
+import { signInWithEmail, signUpWithEmail } from '@/lib/auth';
 
 const Palette = {
   background: '#1A1A1A',
@@ -33,21 +33,22 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'login' | 'signup' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const isFormValid = useMemo(
     () => email.trim().length > 0 && password.length > 0,
     [email, password],
   );
+  const loading = pendingAction !== null;
 
   async function handleLogin() {
     if (!isFormValid || loading) return;
 
     setError(null);
-    setLoading(true);
+    setPendingAction('login');
     const { error: signInError } = await signInWithEmail(email.trim(), password);
-    setLoading(false);
+    setPendingAction(null);
 
     if (signInError) {
       setError(signInError);
@@ -57,8 +58,20 @@ export default function LoginScreen() {
     router.replace('/add-friends');
   }
 
-  function handleCreateAccount() {
-    router.push('/add-friends');
+  async function handleCreateAccount() {
+    if (!isFormValid || loading) return;
+
+    setError(null);
+    setPendingAction('signup');
+    const { error: signUpError } = await signUpWithEmail(email.trim(), password);
+    setPendingAction(null);
+
+    if (signUpError) {
+      setError(signUpError);
+      return;
+    }
+
+    router.replace('/onboarding');
   }
 
   return (
@@ -148,8 +161,19 @@ export default function LoginScreen() {
 
               <Pressable
                 onPress={handleCreateAccount}
-                style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
-                <Text style={styles.secondaryButtonText}>Créer un compte</Text>
+                disabled={!isFormValid || loading}
+                style={({ pressed }) => [
+                  styles.secondaryButton,
+                  !isFormValid && styles.secondaryButtonDisabled,
+                  pressed && isFormValid && styles.pressed,
+                ]}>
+                <Text
+                  style={[
+                    styles.secondaryButtonText,
+                    !isFormValid && styles.secondaryButtonTextDisabled,
+                  ]}>
+                  {pendingAction === 'signup' ? 'Création…' : 'Créer un compte'}
+                </Text>
               </Pressable>
             </View>
           </View>
@@ -259,10 +283,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  secondaryButtonDisabled: {
+    borderColor: Palette.disabledText,
+  },
   secondaryButtonText: {
     color: Palette.accent,
     fontFamily: 'Inter_600SemiBold',
     fontSize: 16,
+  },
+  secondaryButtonTextDisabled: {
+    color: Palette.disabledText,
   },
   pressed: {
     opacity: 0.8,

@@ -12,7 +12,7 @@ SplashScreen.preventAutoHideAsync();
 
 // Routes listed here render on their own, without the tab bar around them —
 // currently the RECO auth/onboarding flow, which lives outside the demo tabs.
-const routesWithoutTabs = ['index', 'login', 'add-friends', 'feed'];
+const routesWithoutTabs = ['index', 'login', 'onboarding', 'add-friends', 'feed'];
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
