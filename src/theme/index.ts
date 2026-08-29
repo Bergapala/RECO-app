@@ -48,6 +48,20 @@ export const borderRadius = {
   full: 999,
 } as const;
 
+/**
+ * Décline une couleur du thème (hex) avec une opacité donnée (0-1), ex.
+ * `withOpacity(colors.accent, 0.2)` pour un fond teinté à 20%. Garde les
+ * variantes transparentes dérivées des mêmes couleurs de base plutôt que
+ * codées en dur ailleurs.
+ */
+export function withOpacity(hex: string, alpha: number): string {
+  const normalized = hex.replace('#', '');
+  const r = parseInt(normalized.substring(0, 2), 16);
+  const g = parseInt(normalized.substring(2, 4), 16);
+  const b = parseInt(normalized.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 export const theme = {
   colors,
   fontTitle,
@@ -55,6 +69,7 @@ export const theme = {
   fontSizes,
   spacing,
   borderRadius,
+  withOpacity,
 } as const;
 
 export type Theme = typeof theme;
