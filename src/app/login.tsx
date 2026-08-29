@@ -61,7 +61,7 @@ export default function LoginScreen() {
       return;
     }
 
-    router.replace('/onboarding');
+    router.replace('/add-friends');
   }
 
   return (
