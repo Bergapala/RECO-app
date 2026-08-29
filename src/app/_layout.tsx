@@ -1,4 +1,4 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Slot, ThemeProvider, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
 
@@ -7,12 +7,18 @@ import AppTabs from '@/components/app-tabs';
 
 SplashScreen.preventAutoHideAsync();
 
-export default function TabLayout() {
+// Routes listed here render on their own, without the tab bar around them.
+const routesWithoutTabs = ['login'];
+
+export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const [firstSegment] = useSegments();
+  const showTabs = !routesWithoutTabs.includes(firstSegment);
+
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
-      <AppTabs />
+      {showTabs ? <AppTabs /> : <Slot />}
     </ThemeProvider>
   );
 }
