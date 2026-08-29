@@ -14,17 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
 import { signInWithEmail, signUpWithEmail } from '@/lib/auth';
-
-const Palette = {
-  background: '#1A1A1A',
-  accent: '#C0392B',
-  text: '#F5F2EE',
-  textMuted: 'rgba(245, 242, 238, 0.5)',
-  fieldBackground: '#262626',
-  disabledBackground: 'rgba(245, 242, 238, 0.08)',
-  disabledText: 'rgba(245, 242, 238, 0.35)',
-  separator: 'rgba(245, 242, 238, 0.15)',
-};
+import { theme } from '@/theme';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -92,7 +82,7 @@ export default function LoginScreen() {
                   if (error) setError(null);
                 }}
                 placeholder="Adresse email"
-                placeholderTextColor={Palette.textMuted}
+                placeholderTextColor={theme.colors.muted}
                 style={styles.input}
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -111,7 +101,7 @@ export default function LoginScreen() {
                     if (error) setError(null);
                   }}
                   placeholder="Mot de passe"
-                  placeholderTextColor={Palette.textMuted}
+                  placeholderTextColor={theme.colors.muted}
                   style={[styles.input, styles.passwordInput]}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
@@ -127,7 +117,7 @@ export default function LoginScreen() {
                   <Feather
                     name={showPassword ? 'eye-off' : 'eye'}
                     size={20}
-                    color={Palette.textMuted}
+                    color={theme.colors.muted}
                   />
                 </Pressable>
               </View>
@@ -149,7 +139,7 @@ export default function LoginScreen() {
                     styles.primaryButtonText,
                     !isFormValid && styles.primaryButtonTextDisabled,
                   ]}>
-                  {loading ? 'Connexion…' : 'Se connecter'}
+                  {loading && pendingAction === 'login' ? 'Connexion…' : 'Se connecter'}
                 </Text>
               </Pressable>
 
@@ -186,7 +176,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Palette.background,
+    backgroundColor: theme.colors.background,
   },
   safeArea: {
     flex: 1,
@@ -197,30 +187,30 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 24,
-    gap: 48,
+    paddingHorizontal: theme.spacing.lg,
+    gap: theme.spacing.xxl,
     maxWidth: 420,
     alignSelf: 'center',
     width: '100%',
   },
   logo: {
-    color: Palette.accent,
-    fontFamily: 'Syne_800ExtraBold',
-    fontSize: 44,
+    color: theme.colors.accent,
+    fontFamily: `${theme.fontTitle}_800ExtraBold`,
+    fontSize: theme.fontSizes.xxl,
     letterSpacing: 2,
     textAlign: 'center',
   },
   form: {
-    gap: 16,
+    gap: theme.spacing.md,
   },
   input: {
     height: 52,
-    borderRadius: 14,
-    backgroundColor: Palette.fieldBackground,
-    paddingHorizontal: 18,
-    color: Palette.text,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 16,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.card,
+    paddingHorizontal: theme.spacing.md,
+    color: theme.colors.text,
+    fontFamily: `${theme.fontBody}_400Regular`,
+    fontSize: theme.fontSizes.md,
   },
   passwordField: {
     justifyContent: 'center',
@@ -230,69 +220,69 @@ const styles = StyleSheet.create({
   },
   eyeButton: {
     position: 'absolute',
-    right: 16,
+    right: theme.spacing.md,
     height: 52,
     justifyContent: 'center',
   },
   errorText: {
-    color: Palette.accent,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 13,
+    color: theme.colors.error,
+    fontFamily: `${theme.fontBody}_400Regular`,
+    fontSize: theme.fontSizes.xs,
   },
   actions: {
-    gap: 20,
+    gap: theme.spacing.lg,
   },
   primaryButton: {
     height: 52,
-    borderRadius: 14,
-    backgroundColor: Palette.accent,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryButtonDisabled: {
-    backgroundColor: Palette.disabledBackground,
+    backgroundColor: theme.colors.border,
   },
   primaryButtonText: {
-    color: Palette.text,
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 16,
+    color: theme.colors.text,
+    fontFamily: `${theme.fontBody}_600SemiBold`,
+    fontSize: theme.fontSizes.md,
   },
   primaryButtonTextDisabled: {
-    color: Palette.disabledText,
+    color: theme.colors.muted,
   },
   separatorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: theme.spacing.sm,
   },
   separatorLine: {
     flex: 1,
     height: StyleSheet.hairlineWidth,
-    backgroundColor: Palette.separator,
+    backgroundColor: theme.colors.border,
   },
   separatorText: {
-    color: Palette.textMuted,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 13,
+    color: theme.colors.muted,
+    fontFamily: `${theme.fontBody}_400Regular`,
+    fontSize: theme.fontSizes.xs,
   },
   secondaryButton: {
     height: 52,
-    borderRadius: 14,
+    borderRadius: theme.borderRadius.md,
     borderWidth: 1.5,
-    borderColor: Palette.accent,
+    borderColor: theme.colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
   secondaryButtonDisabled: {
-    borderColor: Palette.disabledText,
+    borderColor: theme.colors.muted,
   },
   secondaryButtonText: {
-    color: Palette.accent,
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 16,
+    color: theme.colors.accent,
+    fontFamily: `${theme.fontBody}_600SemiBold`,
+    fontSize: theme.fontSizes.md,
   },
   secondaryButtonTextDisabled: {
-    color: Palette.disabledText,
+    color: theme.colors.muted,
   },
   pressed: {
     opacity: 0.8,
