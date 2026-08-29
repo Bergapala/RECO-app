@@ -46,3 +46,16 @@ export async function hasActiveSession(): Promise<boolean> {
   const { data } = await supabase.auth.getSession();
   return data.session !== null;
 }
+
+/**
+ * Id de l'utilisateur Supabase actuellement connecté, ou `null` si personne
+ * n'est connecté (ou si Supabase n'est pas configuré).
+ */
+export async function getCurrentUserId(): Promise<string | null> {
+  if (!isSupabaseConfigured) {
+    return null;
+  }
+
+  const { data } = await supabase.auth.getUser();
+  return data.user?.id ?? null;
+}
