@@ -1,4 +1,6 @@
-import { useRef, useState } from 'react';
+import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -11,28 +13,52 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
-import { Spacing } from '@/constants/theme';
+import { signInWithEmail } from '@/lib/auth';
 
 const Palette = {
-  background: '#1A1A2E',
+  background: '#1A1A1A',
   accent: '#C0392B',
-  text: '#FFFFFF',
-  textMuted: 'rgba(255, 255, 255, 0.55)',
-  fieldBackground: 'rgba(255, 255, 255, 0.06)',
-  fieldBorder: 'rgba(255, 255, 255, 0.12)',
+  text: '#F5F2EE',
+  textMuted: 'rgba(245, 242, 238, 0.5)',
+  fieldBackground: '#262626',
+  disabledBackground: 'rgba(245, 242, 238, 0.08)',
+  disabledText: 'rgba(245, 242, 238, 0.35)',
+  separator: 'rgba(245, 242, 238, 0.15)',
 };
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const router = useRouter();
   const passwordRef = useRef<TextInput>(null);
 
-  function handleLogin() {
-    // TODO: brancher l'authentification (email, password)
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const isFormValid = useMemo(
+    () => email.trim().length > 0 && password.length > 0,
+    [email, password],
+  );
+
+  async function handleLogin() {
+    if (!isFormValid || loading) return;
+
+    setError(null);
+    setLoading(true);
+    const { error: signInError } = await signInWithEmail(email.trim(), password);
+    setLoading(false);
+
+    if (signInError) {
+      setError(signInError);
+      return;
+    }
+
+    router.replace('/add-friends');
   }
 
   function handleCreateAccount() {
-    // TODO: naviguer vers l'écran d'inscription
+    router.push('/add-friends');
   }
 
   return (
@@ -43,16 +69,16 @@ export default function LoginScreen() {
           style={styles.flexFill}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.content}>
-            <View style={styles.header}>
-              <Text style={styles.title}>Connexion</Text>
-              <Text style={styles.subtitle}>Ravi de vous revoir</Text>
-            </View>
+            <Text style={styles.logo}>RECO</Text>
 
             <View style={styles.form}>
               <TextInput
                 value={email}
-                onChangeText={setEmail}
-                placeholder="Email"
+                onChangeText={(value) => {
+                  setEmail(value);
+                  if (error) setError(null);
+                }}
+                placeholder="Adresse email"
                 placeholderTextColor={Palette.textMuted}
                 style={styles.input}
                 keyboardType="email-address"
@@ -63,28 +89,62 @@ export default function LoginScreen() {
                 onSubmitEditing={() => passwordRef.current?.focus()}
               />
 
-              <TextInput
-                ref={passwordRef}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Mot de passe"
-                placeholderTextColor={Palette.textMuted}
-                style={styles.input}
-                secureTextEntry
-                autoCapitalize="none"
-                autoComplete="password"
-                textContentType="password"
-                returnKeyType="done"
-                onSubmitEditing={handleLogin}
-              />
+              <View style={styles.passwordField}>
+                <TextInput
+                  ref={passwordRef}
+                  value={password}
+                  onChangeText={(value) => {
+                    setPassword(value);
+                    if (error) setError(null);
+                  }}
+                  placeholder="Mot de passe"
+                  placeholderTextColor={Palette.textMuted}
+                  style={[styles.input, styles.passwordInput]}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoComplete="password"
+                  textContentType="password"
+                  returnKeyType="done"
+                  onSubmitEditing={handleLogin}
+                />
+                <Pressable
+                  onPress={() => setShowPassword((value) => !value)}
+                  hitSlop={12}
+                  style={styles.eyeButton}>
+                  <Feather
+                    name={showPassword ? 'eye-off' : 'eye'}
+                    size={20}
+                    color={Palette.textMuted}
+                  />
+                </Pressable>
+              </View>
+
+              {error && <Text style={styles.errorText}>{error}</Text>}
             </View>
 
             <View style={styles.actions}>
               <Pressable
                 onPress={handleLogin}
-                style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
-                <Text style={styles.primaryButtonText}>Se connecter</Text>
+                disabled={!isFormValid || loading}
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  !isFormValid && styles.primaryButtonDisabled,
+                  pressed && isFormValid && styles.pressed,
+                ]}>
+                <Text
+                  style={[
+                    styles.primaryButtonText,
+                    !isFormValid && styles.primaryButtonTextDisabled,
+                  ]}>
+                  {loading ? 'Connexion…' : 'Se connecter'}
+                </Text>
               </Pressable>
+
+              <View style={styles.separatorRow}>
+                <View style={styles.separatorLine} />
+                <Text style={styles.separatorText}>ou</Text>
+                <View style={styles.separatorLine} />
+              </View>
 
               <Pressable
                 onPress={handleCreateAccount}
@@ -113,63 +173,98 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.six,
+    paddingHorizontal: 24,
+    gap: 48,
     maxWidth: 420,
     alignSelf: 'center',
     width: '100%',
   },
-  header: {
-    gap: Spacing.one,
-  },
-  title: {
-    color: Palette.text,
-    fontSize: 32,
-    fontWeight: '600',
-  },
-  subtitle: {
-    color: Palette.textMuted,
-    fontSize: 15,
+  logo: {
+    color: Palette.accent,
+    fontFamily: 'Syne_800ExtraBold',
+    fontSize: 44,
+    letterSpacing: 2,
+    textAlign: 'center',
   },
   form: {
-    gap: Spacing.three,
+    gap: 16,
   },
   input: {
     height: 52,
-    borderRadius: Spacing.two,
-    borderWidth: 1,
-    borderColor: Palette.fieldBorder,
+    borderRadius: 14,
     backgroundColor: Palette.fieldBackground,
-    paddingHorizontal: Spacing.three,
+    paddingHorizontal: 18,
     color: Palette.text,
+    fontFamily: 'Inter_400Regular',
     fontSize: 16,
   },
+  passwordField: {
+    justifyContent: 'center',
+  },
+  passwordInput: {
+    paddingRight: 48,
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 16,
+    height: 52,
+    justifyContent: 'center',
+  },
+  errorText: {
+    color: Palette.accent,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+  },
   actions: {
-    gap: Spacing.three,
+    gap: 20,
   },
   primaryButton: {
     height: 52,
-    borderRadius: Spacing.two,
+    borderRadius: 14,
     backgroundColor: Palette.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  primaryButtonDisabled: {
+    backgroundColor: Palette.disabledBackground,
+  },
   primaryButtonText: {
     color: Palette.text,
+    fontFamily: 'Inter_600SemiBold',
     fontSize: 16,
-    fontWeight: '600',
+  },
+  primaryButtonTextDisabled: {
+    color: Palette.disabledText,
+  },
+  separatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  separatorLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: Palette.separator,
+  },
+  separatorText: {
+    color: Palette.textMuted,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
   },
   secondaryButton: {
     height: 52,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: Palette.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
   secondaryButtonText: {
-    color: Palette.textMuted,
-    fontSize: 15,
-    fontWeight: '500',
+    color: Palette.accent,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 16,
   },
   pressed: {
-    opacity: 0.7,
+    opacity: 0.8,
   },
 });
