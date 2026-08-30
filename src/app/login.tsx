@@ -45,7 +45,7 @@ export default function LoginScreen() {
       return;
     }
 
-    router.replace('/add-friends');
+    router.replace('/feed');
   }
 
   async function handleCreateAccount() {
@@ -61,7 +61,7 @@ export default function LoginScreen() {
       return;
     }
 
-    router.replace('/complete-profile');
+    router.replace('/onboarding');
   }
 
   return (

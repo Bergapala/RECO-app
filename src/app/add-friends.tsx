@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   FlatList,
   Pressable,
-  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -17,14 +16,11 @@ import { StatusBar } from 'expo-status-bar';
 import { getCurrentUserId } from '@/lib/auth';
 import { findContactsOnReco, type ContactMatch } from '@/lib/contacts';
 import { searchUsersByName, sendFriendRequest, type UserSearchResult } from '@/lib/friends';
+import { shareInvite } from '@/lib/invite';
 import { theme } from '@/theme';
 
 type RequestStatus = 'idle' | 'sending' | 'sent';
 type ContactsSyncState = 'idle' | 'syncing' | 'denied' | 'done';
-
-// TODO: remplacer par le vrai lien une fois l'app publiée sur l'App Store
-// (voir la préparation du build App Store).
-const APP_STORE_URL = 'https://apps.apple.com/app/reco';
 
 export default function AddFriendsScreen() {
   const router = useRouter();
@@ -100,16 +96,6 @@ export default function AddFriendsScreen() {
       ...current,
       [friendId]: error ? 'idle' : 'sent',
     }));
-  }
-
-  async function handleInvite() {
-    const message = `Rejoins-moi sur RECO 🔴 — l'app pour partager tes meilleures découvertes avec tes potes ! ${APP_STORE_URL}`;
-
-    try {
-      await Share.share({ message });
-    } catch {
-      // L'utilisateur a simplement annulé le partage — rien à faire.
-    }
   }
 
   function handleContinue() {
@@ -213,7 +199,7 @@ export default function AddFriendsScreen() {
           </View>
 
           <Pressable
-            onPress={handleInvite}
+            onPress={shareInvite}
             style={({ pressed }) => [styles.inviteButton, pressed && styles.pressed]}>
             <Text style={styles.inviteButtonText}>Inviter des amis</Text>
           </Pressable>

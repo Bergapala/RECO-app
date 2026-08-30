@@ -69,7 +69,12 @@ export default function PhoneLoginScreen() {
     const profile = userId ? await getUserProfile(userId) : null;
     setLoading(false);
 
-    router.replace(profile?.prenom ? '/add-friends' : '/complete-profile');
+    // Pas de prénom enregistré = premier passage (inscription) sur ce
+    // compte : même flow que la création de compte par email
+    // (onboarding -> complétion du profil -> ajout d'amis -> feed).
+    // Un prénom déjà présent = compte existant qui se reconnecte -> feed
+    // directement, comme "Se connecter" par email.
+    router.replace(profile?.prenom ? '/feed' : '/onboarding');
   }
 
   return (

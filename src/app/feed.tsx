@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { RecoCard } from '@/components/RecoCard';
 import { useRecoReactions } from '@/hooks/use-reco-reactions';
 import { getCurrentUserId } from '@/lib/auth';
+import { shareInvite } from '@/lib/invite';
 import { getUnreadCount, subscribeToNotifications } from '@/lib/notifications';
 import { fetchFeedRecos, type FeedReco } from '@/lib/recos';
 import { getProfileStats } from '@/lib/users';
@@ -120,6 +121,19 @@ export default function FeedScreen() {
                     onPress={() => router.push('/add-friends')}
                     style={({ pressed }) => [styles.emptyButton, pressed && styles.pressed]}>
                     <Text style={styles.emptyButtonText}>Ajouter des amis</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={shareInvite}
+                    style={({ pressed }) => [styles.emptySecondaryButton, pressed && styles.pressed]}>
+                    <Text style={styles.emptySecondaryButtonText}>Inviter des amis</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      // Ne fait rien de spécial : reste simplement sur le
+                      // feed vide, sans naviguer ailleurs.
+                    }}
+                    hitSlop={8}>
+                    <Text style={styles.emptySkipText}>Passer</Text>
                   </Pressable>
                 </View>
               ) : (
@@ -243,6 +257,11 @@ const styles = StyleSheet.create({
     color: theme.colors.accent,
     fontFamily: `${theme.fontBody}_600SemiBold`,
     fontSize: theme.fontSizes.md,
+  },
+  emptySkipText: {
+    color: theme.colors.muted,
+    fontFamily: `${theme.fontBody}_500Medium`,
+    fontSize: theme.fontSizes.sm,
   },
   pressed: {
     opacity: 0.85,

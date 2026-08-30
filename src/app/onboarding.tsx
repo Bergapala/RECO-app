@@ -5,7 +5,6 @@ import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
-import { markOnboardingSeen } from '@/lib/onboarding';
 import { theme } from '@/theme';
 
 type Slide = {
@@ -45,14 +44,13 @@ export default function OnboardingScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  function goToLogin() {
-    markOnboardingSeen();
-    router.replace('/login');
+  function goToCompleteProfile() {
+    router.replace('/complete-profile');
   }
 
   function handlePrimaryPress() {
     if (activeIndex === lastSlideIndex) {
-      goToLogin();
+      goToCompleteProfile();
       return;
     }
     const nextIndex = activeIndex + 1;
@@ -83,7 +81,7 @@ export default function OnboardingScreen() {
 
           <View style={[styles.sideSlot, styles.sideSlotEnd]}>
             {activeIndex < lastSlideIndex && (
-              <Pressable onPress={goToLogin} hitSlop={12}>
+              <Pressable onPress={goToCompleteProfile} hitSlop={12}>
                 <Text style={styles.skipText}>Passer</Text>
               </Pressable>
             )}
