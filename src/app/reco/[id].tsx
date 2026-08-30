@@ -322,7 +322,10 @@ export default function RecoDetailScreen() {
               placeholder="Ajouter un commentaire..."
               placeholderTextColor={theme.colors.muted}
               style={[styles.commentInput, { height: commentInputHeight }]}
-              multiline
+              multiline={true}
+              numberOfLines={4}
+              textAlignVertical="top"
+              scrollEnabled={commentInputHeight >= COMMENT_INPUT_MAX_HEIGHT}
             />
             <Pressable
               onPress={handleSendComment}
@@ -522,11 +525,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: theme.colors.card,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: theme.colors.border,
-    paddingHorizontal: theme.spacing.md,
+    backgroundColor: 'rgba(28, 28, 28, 0.85)',
+    borderRadius: theme.borderRadius.full,
+    paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
   },
   actionsLeft: {
     flexDirection: 'row',
