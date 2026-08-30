@@ -1,8 +1,8 @@
 import { Feather } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Animated, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getCurrentUserId } from '@/lib/auth';
@@ -34,6 +34,16 @@ export function BottomTabBar({ active }: BottomTabBarProps) {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [initial, setInitial] = useState('?');
   const [hasUnread, setHasUnread] = useState(false);
+
+  const plusScale = useRef(new Animated.Value(1)).current;
+
+  function handlePlusPressIn() {
+    Animated.spring(plusScale, { toValue: 0.95, useNativeDriver: true, speed: 50 }).start();
+  }
+
+  function handlePlusPressOut() {
+    Animated.spring(plusScale, { toValue: 1, useNativeDriver: true, speed: 50 }).start();
+  }
 
   useEffect(() => {
     getCurrentUserId().then(async (userId) => {
@@ -82,13 +92,6 @@ export function BottomTabBar({ active }: BottomTabBarProps) {
             </Pressable>
 
             <Pressable
-              onPress={() => router.push('/add-reco')}
-              hitSlop={8}
-              style={styles.button}>
-              <Feather name="plus" size={22} color={theme.colors.text} />
-            </Pressable>
-
-            <Pressable
               onPress={active === 'profile' ? undefined : () => router.push('/profile')}
               hitSlop={8}
               style={[styles.button, active === 'profile' && styles.buttonActive]}>
@@ -104,6 +107,22 @@ export function BottomTabBar({ active }: BottomTabBarProps) {
               </View>
             </Pressable>
           </View>
+        </View>
+
+        {/* Le bouton + dépasse volontairement du bandeau (plus grand que sa
+           hauteur) — il doit donc être un sibling de `pill` plutôt qu'un
+           enfant, sinon le `overflow: hidden` de `pill` (nécessaire pour
+           clipper le blur en pilule) le couperait au ras du bord. */}
+        <View style={styles.plusWrapper} pointerEvents="box-none">
+          <Pressable
+            onPress={() => router.push('/add-reco')}
+            onPressIn={handlePlusPressIn}
+            onPressOut={handlePlusPressOut}
+            hitSlop={4}>
+            <Animated.View style={[styles.plusButton, { transform: [{ scale: plusScale }] }]}>
+              <Feather name="plus" size={theme.fontSizes.xxl} color={theme.colors.text} />
+            </Animated.View>
+          </Pressable>
         </View>
       </View>
     </View>
@@ -136,8 +155,11 @@ const styles = StyleSheet.create({
   content: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingHorizontal: theme.spacing.sm,
+    // Seuls Accueil et Profil restent dans cette rangée — le bouton +
+    // flotte au-dessus (voir plusWrapper), donc space-between les écarte
+    // vers les bords plutôt que de laisser un vide au milieu.
+    justifyContent: 'space-between',
+    paddingHorizontal: theme.spacing.xl,
     paddingVertical: theme.spacing.sm,
   },
   button: {
@@ -147,6 +169,28 @@ const styles = StyleSheet.create({
   },
   buttonActive: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  plusWrapper: {
+    position: 'absolute',
+    // Remonte le cercle (60px) pour qu'il dépasse d'environ 18px au-dessus
+    // du bandeau tout en chevauchant le reste de sa hauteur.
+    top: -18,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  plusButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: theme.withOpacity(theme.colors.accent, 0.9),
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: theme.colors.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 10,
   },
   avatar: {
     width: 28,
