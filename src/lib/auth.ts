@@ -16,47 +16,49 @@ export async function signInWithEmail(email: string, password: string): Promise<
   return { error: error?.message ?? null };
 }
 
-export type SignUpOptions = {
-  phone?: string;
-  inviteCode?: string;
-};
-
 /**
- * Crée un compte via Supabase Auth (email + mot de passe), avec téléphone
- * et code d'invitation optionnels.
- *
- * `phone` et `inviteCode` sont transmis en tant que métadonnées de
- * l'utilisateur Supabase Auth ; le trigger handle_new_user (voir la
- * migration phone_invite_code.sql) les récupère lui-même pour enregistrer
- * le téléphone sur le profil et, si le code correspond à quelqu'un,
- * créer directement une amitié acceptée entre les deux — tout ça côté
- * serveur, de façon atomique avec la création du compte.
+ * Crée un compte via Supabase Auth (email + mot de passe).
  *
  * Si la confirmation d'email est activée sur le projet Supabase (Auth >
  * Providers > Email), le compte est créé mais sans session active tant que
  * le lien de confirmation n'a pas été cliqué — `hasActiveSession()` renverra
  * `false` jusque-là même si `signUpWithEmail` n'a pas retourné d'erreur.
  */
-export async function signUpWithEmail(
-  email: string,
-  password: string,
-  options?: SignUpOptions,
-): Promise<AuthResult> {
+export async function signUpWithEmail(email: string, password: string): Promise<AuthResult> {
   if (!isSupabaseConfigured) {
     return { error: "Supabase n'est pas encore configuré (voir .env.example)." };
   }
 
-  const { error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: {
-        phone: options?.phone || undefined,
-        invite_code: options?.inviteCode || undefined,
-      },
-    },
-  });
+  const { error } = await supabase.auth.signUp({ email, password });
+  return { error: error?.message ?? null };
+}
 
+/**
+ * Envoie un code de vérification par SMS au numéro donné (format E.164,
+ * ex. +33612345678) — connexion ou inscription selon que ce numéro a déjà
+ * un compte ou non, Supabase gère les deux cas de façon transparente.
+ *
+ * Nécessite qu'un fournisseur SMS (Twilio, MessageBird, Vonage...) soit
+ * configuré sur le projet Supabase (Authentication > Providers > Phone) —
+ * sans ça, cet appel renvoie l'erreur de Supabase telle quelle plutôt que
+ * de planter, mais aucun SMS ne partira réellement.
+ */
+export async function sendPhoneOtp(phone: string): Promise<AuthResult> {
+  if (!isSupabaseConfigured) {
+    return { error: "Supabase n'est pas encore configuré (voir .env.example)." };
+  }
+
+  const { error } = await supabase.auth.signInWithOtp({ phone });
+  return { error: error?.message ?? null };
+}
+
+/** Vérifie le code reçu par SMS et ouvre la session si c'est le bon. */
+export async function verifyPhoneOtp(phone: string, code: string): Promise<AuthResult> {
+  if (!isSupabaseConfigured) {
+    return { error: "Supabase n'est pas encore configuré (voir .env.example)." };
+  }
+
+  const { error } = await supabase.auth.verifyOtp({ phone, token: code, type: 'sms' });
   return { error: error?.message ?? null };
 }
 

@@ -4,6 +4,7 @@ export type UserProfile = {
   id: string;
   prenom: string | null;
   photoUrl: string | null;
+  phone: string | null;
 };
 
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
@@ -11,32 +12,13 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
 
   const { data, error } = await supabase
     .from('users')
-    .select('id, prenom, photo_url')
+    .select('id, prenom, photo_url, phone')
     .eq('id', userId)
     .maybeSingle();
 
   if (error || !data) return null;
 
-  return { id: data.id, prenom: data.prenom, photoUrl: data.photo_url };
-}
-
-/**
- * Code d'invitation de l'utilisateur (voir la migration
- * phone_invite_code.sql — généré automatiquement à l'inscription, jamais
- * nul en pratique une fois le profil créé).
- */
-export async function getInviteCode(userId: string): Promise<string | null> {
-  if (!isSupabaseConfigured) return null;
-
-  const { data, error } = await supabase
-    .from('users')
-    .select('invite_code')
-    .eq('id', userId)
-    .maybeSingle();
-
-  if (error || !data) return null;
-
-  return data.invite_code;
+  return { id: data.id, prenom: data.prenom, photoUrl: data.photo_url, phone: data.phone };
 }
 
 export type ProfileStats = {
@@ -69,6 +51,15 @@ export async function updatePrenom(userId: string, prenom: string): Promise<{ er
   }
 
   const { error } = await supabase.from('users').update({ prenom }).eq('id', userId);
+  return { error: error?.message ?? null };
+}
+
+export async function updatePhone(userId: string, phone: string): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured) {
+    return { error: "Supabase n'est pas encore configuré." };
+  }
+
+  const { error } = await supabase.from('users').update({ phone }).eq('id', userId);
   return { error: error?.message ?? null };
 }
 

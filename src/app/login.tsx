@@ -22,8 +22,6 @@ export default function LoginScreen() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [phone, setPhone] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [pendingAction, setPendingAction] = useState<'login' | 'signup' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,10 +53,7 @@ export default function LoginScreen() {
 
     setError(null);
     setPendingAction('signup');
-    const { error: signUpError } = await signUpWithEmail(email.trim(), password, {
-      phone: phone.trim() || undefined,
-      inviteCode: inviteCode.trim() || undefined,
-    });
+    const { error: signUpError } = await signUpWithEmail(email.trim(), password);
     setPendingAction(null);
 
     if (signUpError) {
@@ -66,7 +61,7 @@ export default function LoginScreen() {
       return;
     }
 
-    router.replace('/add-friends');
+    router.replace('/complete-profile');
   }
 
   return (
@@ -127,31 +122,6 @@ export default function LoginScreen() {
                 </Pressable>
               </View>
 
-              <Text style={styles.signupHint}>Pour créer un compte (facultatif)</Text>
-
-              <TextInput
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="Numéro de téléphone"
-                placeholderTextColor={theme.colors.muted}
-                style={styles.input}
-                keyboardType="phone-pad"
-                autoComplete="tel"
-                textContentType="telephoneNumber"
-                returnKeyType="next"
-              />
-
-              <TextInput
-                value={inviteCode}
-                onChangeText={setInviteCode}
-                placeholder="Code d'invitation"
-                placeholderTextColor={theme.colors.muted}
-                style={styles.input}
-                autoCapitalize="characters"
-                autoCorrect={false}
-                returnKeyType="done"
-              />
-
               {error && <Text style={styles.errorText}>{error}</Text>}
             </View>
 
@@ -194,6 +164,13 @@ export default function LoginScreen() {
                   ]}>
                   {pendingAction === 'signup' ? 'Création…' : 'Créer un compte'}
                 </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => router.push('/phone-login')}
+                hitSlop={8}
+                style={({ pressed }) => pressed && styles.pressed}>
+                <Text style={styles.phoneLinkText}>Continuer avec mon numéro</Text>
               </Pressable>
             </View>
           </View>
@@ -244,14 +221,6 @@ const styles = StyleSheet.create({
   },
   passwordField: {
     justifyContent: 'center',
-  },
-  signupHint: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_500Medium`,
-    fontSize: theme.fontSizes.xs,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginTop: theme.spacing.xs,
   },
   passwordInput: {
     paddingRight: 48,
@@ -321,6 +290,13 @@ const styles = StyleSheet.create({
   },
   secondaryButtonTextDisabled: {
     color: theme.colors.muted,
+  },
+  phoneLinkText: {
+    color: theme.colors.muted,
+    fontFamily: `${theme.fontBody}_500Medium`,
+    fontSize: theme.fontSizes.sm,
+    textAlign: 'center',
+    textDecorationLine: 'underline',
   },
   pressed: {
     opacity: 0.8,

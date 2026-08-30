@@ -17,18 +17,20 @@ import { StatusBar } from 'expo-status-bar';
 import { getCurrentUserId } from '@/lib/auth';
 import { findContactsOnReco, type ContactMatch } from '@/lib/contacts';
 import { searchUsersByName, sendFriendRequest, type UserSearchResult } from '@/lib/friends';
-import { getInviteCode } from '@/lib/users';
 import { theme } from '@/theme';
 
 type RequestStatus = 'idle' | 'sending' | 'sent';
 type ContactsSyncState = 'idle' | 'syncing' | 'denied' | 'done';
+
+// TODO: remplacer par le vrai lien une fois l'app publiée sur l'App Store
+// (voir la préparation du build App Store).
+const APP_STORE_URL = 'https://apps.apple.com/app/reco';
 
 export default function AddFriendsScreen() {
   const router = useRouter();
   const { autoSync } = useLocalSearchParams<{ autoSync?: string }>();
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [inviteCode, setInviteCode] = useState<string | null>(null);
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UserSearchResult[]>([]);
@@ -40,12 +42,7 @@ export default function AddFriendsScreen() {
   const [requestStatus, setRequestStatus] = useState<Record<string, RequestStatus>>({});
 
   useEffect(() => {
-    getCurrentUserId().then(async (userId) => {
-      setCurrentUserId(userId);
-      if (userId) {
-        setInviteCode(await getInviteCode(userId));
-      }
-    });
+    getCurrentUserId().then(setCurrentUserId);
   }, []);
 
   useEffect(() => {
@@ -106,9 +103,7 @@ export default function AddFriendsScreen() {
   }
 
   async function handleInvite() {
-    const message = inviteCode
-      ? `Rejoins-moi sur RECO 🔴 — l'app pour partager tes meilleures découvertes avec tes potes ! Télécharge l'app et utilise mon code : ${inviteCode}`
-      : "Rejoins-moi sur RECO 🔴 — l'app pour partager tes meilleures découvertes avec tes potes !";
+    const message = `Rejoins-moi sur RECO 🔴 — l'app pour partager tes meilleures découvertes avec tes potes ! ${APP_STORE_URL}`;
 
     try {
       await Share.share({ message });
