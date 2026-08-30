@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -20,7 +20,7 @@ import { StatusBar } from 'expo-status-bar';
 
 import { getCurrentUserId } from '@/lib/auth';
 import { fetchOpenGraphMetadata, isValidHttpUrl } from '@/lib/opengraph';
-import { createReco } from '@/lib/recos';
+import { createReco, getRecoById, updateReco } from '@/lib/recos';
 import { uploadRecoImage } from '@/lib/storage';
 import { theme } from '@/theme';
 
@@ -41,9 +41,12 @@ type Step = 1 | 2 | 3 | 'confirmation';
 
 export default function AddRecoScreen() {
   const router = useRouter();
+  const { id: editingId } = useLocalSearchParams<{ id?: string }>();
+  const isEditing = Boolean(editingId);
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [step, setStep] = useState<Step>(1);
+  const [loadingExisting, setLoadingExisting] = useState(isEditing);
 
   // Étape 1
   const [url, setUrl] = useState('');
@@ -62,14 +65,36 @@ export default function AddRecoScreen() {
   const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
-    getCurrentUserId().then(setCurrentUserId);
-  }, []);
+    getCurrentUserId().then(async (userId) => {
+      setCurrentUserId(userId);
+
+      if (editingId) {
+        const existing = await getRecoById(editingId, userId);
+        if (existing) {
+          setUrl(existing.url ?? '');
+          setPreviewTitle(existing.titre);
+          setPreviewImage(existing.apercuImage);
+          setCommentaire(existing.commentaire ?? '');
+          setCategorie(existing.categorie);
+          setStep(2);
+        }
+        setLoadingExisting(false);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingId]);
 
   function confirmLeave() {
-    Alert.alert('Tu veux vraiment annuler ?', 'Ta reco ne sera pas publiée.', [
-      { text: 'Continuer', style: 'cancel' },
-      { text: 'Quitter', style: 'destructive', onPress: () => router.back() },
-    ]);
+    Alert.alert(
+      'Tu veux vraiment annuler ?',
+      isEditing
+        ? 'Tes modifications ne seront pas enregistrées.'
+        : 'Ta reco ne sera pas publiée.',
+      [
+        { text: 'Continuer', style: 'cancel' },
+        { text: 'Quitter', style: 'destructive', onPress: () => router.back() },
+      ],
+    );
   }
 
   async function handleValidateLink() {
@@ -128,15 +153,27 @@ export default function AddRecoScreen() {
   function handlePublish() {
     if (!categorie || !currentUserId || publishing) return;
 
-    setPublishing(true);
-    createReco({
-      userId: currentUserId,
+    const edits = {
       titre: previewTitle.trim(),
       url: isValidHttpUrl(url) ? url.trim() : null,
       apercuImage: previewImage,
       commentaire: commentaire.trim(),
       categorie,
-    }).then(() => {
+    };
+
+    setPublishing(true);
+
+    if (isEditing && editingId) {
+      updateReco(editingId, edits).then(({ error }) => {
+        setPublishing(false);
+        if (!error) {
+          router.replace(`/reco/${editingId}`);
+        }
+      });
+      return;
+    }
+
+    createReco({ userId: currentUserId, ...edits }).then(() => {
       setPublishing(false);
       setStep('confirmation');
       setTimeout(() => router.replace('/feed'), 2000);
@@ -155,6 +192,17 @@ export default function AddRecoScreen() {
     );
   }
 
+  if (loadingExisting) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+        <SafeAreaView style={styles.confirmationSafeArea}>
+          <ActivityIndicator color={theme.colors.accent} />
+        </SafeAreaView>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
@@ -163,7 +211,7 @@ export default function AddRecoScreen() {
           <Pressable onPress={confirmLeave} hitSlop={12} style={styles.backButton}>
             <Feather name="arrow-left" size={22} color={theme.colors.text} />
           </Pressable>
-          <Text style={styles.headerTitle}>Nouvelle reco</Text>
+          <Text style={styles.headerTitle}>{isEditing ? 'Modifier la reco' : 'Nouvelle reco'}</Text>
           <View style={styles.backButton} />
         </View>
 
@@ -208,6 +256,7 @@ export default function AddRecoScreen() {
                 onSelectCategorie={setCategorie}
                 onPublish={handlePublish}
                 publishing={publishing}
+                publishLabel={isEditing ? 'Enregistrer' : 'Publier'}
               />
             )}
           </ScrollView>
@@ -355,6 +404,7 @@ type StepCategoryProps = {
   onSelectCategorie: (value: string) => void;
   onPublish: () => void;
   publishing: boolean;
+  publishLabel: string;
 };
 
 function StepCategory({
@@ -362,6 +412,7 @@ function StepCategory({
   onSelectCategorie,
   onPublish,
   publishing,
+  publishLabel,
 }: StepCategoryProps) {
   return (
     <View style={styles.stepGap}>
@@ -385,7 +436,7 @@ function StepCategory({
       </View>
 
       <PrimaryButton
-        label="Publier"
+        label={publishLabel}
         onPress={onPublish}
         disabled={!categorie}
         loading={publishing}

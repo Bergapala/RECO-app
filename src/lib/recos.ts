@@ -30,6 +30,7 @@ export async function createReco(reco: NewReco): Promise<{ error: string | null 
 export type FeedReco = {
   id: string;
   titre: string;
+  url: string | null;
   commentaire: string | null;
   apercuImage: string | null;
   categorie: string | null;
@@ -48,6 +49,7 @@ export type FeedReco = {
 type RecoRow = {
   id: string;
   titre: string;
+  url: string | null;
   commentaire: string | null;
   apercu_image: string | null;
   categorie: string | null;
@@ -104,7 +106,7 @@ export async function fetchFeedRecos(currentUserId: string | null): Promise<Feed
 }
 
 const RECO_SELECT =
-  'id, titre, commentaire, apercu_image, categorie, created_at, user_id, users(id, prenom, photo_url), reactions(type, user_id)';
+  'id, titre, url, commentaire, apercu_image, categorie, created_at, user_id, users(id, prenom, photo_url), reactions(type, user_id)';
 
 function mapRecoRows(rows: RecoRow[], viewerId: string | null): FeedReco[] {
   return rows.map((row) => {
@@ -112,6 +114,7 @@ function mapRecoRows(rows: RecoRow[], viewerId: string | null): FeedReco[] {
     return {
       id: row.id,
       titre: row.titre,
+      url: row.url,
       commentaire: row.commentaire,
       apercuImage: row.apercu_image,
       categorie: row.categorie,
@@ -153,4 +156,67 @@ export async function fetchRecosByAuthor(
   }
 
   return mapRecoRows(data as unknown as RecoRow[], viewerId);
+}
+
+/** Une reco précise (écran détail — src/app/reco/[id].tsx). */
+export async function getRecoById(
+  recoId: string,
+  viewerId: string | null,
+): Promise<FeedReco | null> {
+  if (!isSupabaseConfigured) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from('recos')
+    .select(RECO_SELECT)
+    .eq('id', recoId)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return mapRecoRows([data as unknown as RecoRow], viewerId)[0] ?? null;
+}
+
+export type RecoEdits = {
+  titre: string;
+  url: string | null;
+  apercuImage: string | null;
+  commentaire: string;
+  categorie: string;
+};
+
+/** Modifie une reco existante (doit être la sienne — RLS l'impose). */
+export async function updateReco(
+  recoId: string,
+  edits: RecoEdits,
+): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured) {
+    return { error: "Supabase n'est pas encore configuré." };
+  }
+
+  const { error } = await supabase
+    .from('recos')
+    .update({
+      titre: edits.titre,
+      url: edits.url,
+      apercu_image: edits.apercuImage,
+      commentaire: edits.commentaire,
+      categorie: edits.categorie,
+    })
+    .eq('id', recoId);
+
+  return { error: error?.message ?? null };
+}
+
+/** Supprime une reco (doit être la sienne — RLS l'impose). */
+export async function deleteReco(recoId: string): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured) {
+    return { error: "Supabase n'est pas encore configuré." };
+  }
+
+  const { error } = await supabase.from('recos').delete().eq('id', recoId);
+  return { error: error?.message ?? null };
 }
