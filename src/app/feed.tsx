@@ -110,6 +110,13 @@ export default function FeedScreen() {
                     Ajoute des amis pour voir leurs recos apparaître ici
                   </Text>
                   <Pressable
+                    onPress={() =>
+                      router.push({ pathname: '/add-friends', params: { autoSync: '1' } })
+                    }
+                    style={({ pressed }) => [styles.emptySecondaryButton, pressed && styles.pressed]}>
+                    <Text style={styles.emptySecondaryButtonText}>Synchroniser mes contacts</Text>
+                  </Pressable>
+                  <Pressable
                     onPress={() => router.push('/add-friends')}
                     style={({ pressed }) => [styles.emptyButton, pressed && styles.pressed]}>
                     <Text style={styles.emptyButtonText}>Ajouter des amis</Text>
@@ -220,6 +227,20 @@ const styles = StyleSheet.create({
   },
   emptyButtonText: {
     color: theme.colors.text,
+    fontFamily: `${theme.fontBody}_600SemiBold`,
+    fontSize: theme.fontSizes.md,
+  },
+  emptySecondaryButton: {
+    height: 52,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1.5,
+    borderColor: theme.colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptySecondaryButtonText: {
+    color: theme.colors.accent,
     fontFamily: `${theme.fontBody}_600SemiBold`,
     fontSize: theme.fontSizes.md,
   },

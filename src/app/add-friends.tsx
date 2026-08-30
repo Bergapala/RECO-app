@@ -1,7 +1,8 @@
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Pressable,
   Share,
@@ -14,25 +15,37 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
 import { getCurrentUserId } from '@/lib/auth';
+import { findContactsOnReco, type ContactMatch } from '@/lib/contacts';
 import { searchUsersByName, sendFriendRequest, type UserSearchResult } from '@/lib/friends';
+import { getInviteCode } from '@/lib/users';
 import { theme } from '@/theme';
 
-const INVITE_MESSAGE =
-  "Rejoins-moi sur RECO pour qu'on se partage nos meilleures découvertes ! recoapp://";
-
 type RequestStatus = 'idle' | 'sending' | 'sent';
+type ContactsSyncState = 'idle' | 'syncing' | 'denied' | 'done';
 
 export default function AddFriendsScreen() {
   const router = useRouter();
+  const { autoSync } = useLocalSearchParams<{ autoSync?: string }>();
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UserSearchResult[]>([]);
   const [searched, setSearched] = useState(false);
+
+  const [contactMatches, setContactMatches] = useState<ContactMatch[]>([]);
+  const [contactsSyncState, setContactsSyncState] = useState<ContactsSyncState>('idle');
+
   const [requestStatus, setRequestStatus] = useState<Record<string, RequestStatus>>({});
 
   useEffect(() => {
-    getCurrentUserId().then(setCurrentUserId);
+    getCurrentUserId().then(async (userId) => {
+      setCurrentUserId(userId);
+      if (userId) {
+        setInviteCode(await getInviteCode(userId));
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -59,6 +72,28 @@ export default function AddFriendsScreen() {
     };
   }, [query, currentUserId]);
 
+  async function handleSyncContacts() {
+    if (contactsSyncState === 'syncing') return;
+
+    setContactsSyncState('syncing');
+    const matches = await findContactsOnReco(currentUserId);
+
+    if (matches === null) {
+      setContactsSyncState('denied');
+      return;
+    }
+
+    setContactMatches(matches);
+    setContactsSyncState('done');
+  }
+
+  // Déclenché en arrivant depuis le bouton "Synchroniser mes contacts" de
+  // l'état vide du feed (voir src/app/feed.tsx).
+  useEffect(() => {
+    if (autoSync) handleSyncContacts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSync]);
+
   async function handleAddFriend(friendId: string) {
     if (!currentUserId || requestStatus[friendId]) return;
 
@@ -71,8 +106,12 @@ export default function AddFriendsScreen() {
   }
 
   async function handleInvite() {
+    const message = inviteCode
+      ? `Rejoins-moi sur RECO 🔴 — l'app pour partager tes meilleures découvertes avec tes potes ! Télécharge l'app et utilise mon code : ${inviteCode}`
+      : "Rejoins-moi sur RECO 🔴 — l'app pour partager tes meilleures découvertes avec tes potes !";
+
     try {
-      await Share.share({ message: INVITE_MESSAGE });
+      await Share.share({ message });
     } catch {
       // L'utilisateur a simplement annulé le partage — rien à faire.
     }
@@ -80,6 +119,16 @@ export default function AddFriendsScreen() {
 
   function handleContinue() {
     router.replace('/feed');
+  }
+
+  const isSearching = query.trim().length > 0;
+  const listData: (UserSearchResult | ContactMatch)[] = isSearching ? results : contactMatches;
+
+  let emptyMessage: string | null = null;
+  if (isSearching && searched) {
+    emptyMessage = 'Aucun ami trouvé';
+  } else if (!isSearching && contactsSyncState === 'done' && contactMatches.length === 0) {
+    emptyMessage = 'Aucun de tes contacts n’est encore sur RECO';
   }
 
   return (
@@ -103,17 +152,35 @@ export default function AddFriendsScreen() {
               returnKeyType="search"
             />
           </View>
+
+          <Pressable
+            onPress={handleSyncContacts}
+            disabled={contactsSyncState === 'syncing'}
+            style={({ pressed }) => [styles.syncButton, pressed && styles.pressed]}>
+            {contactsSyncState === 'syncing' ? (
+              <ActivityIndicator color={theme.colors.accent} />
+            ) : (
+              <>
+                <Feather name="users" size={16} color={theme.colors.accent} />
+                <Text style={styles.syncButtonText}>Synchroniser mes contacts</Text>
+              </>
+            )}
+          </Pressable>
+
+          {contactsSyncState === 'denied' && (
+            <Text style={styles.syncDeniedText}>
+              Accès aux contacts refusé — active-le dans Réglages pour retrouver tes amis.
+            </Text>
+          )}
         </View>
 
         <FlatList
-          data={results}
+          data={listData}
           keyExtractor={(item) => item.id}
           style={styles.list}
           contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled"
-          ListEmptyComponent={
-            searched ? <Text style={styles.emptyText}>Aucun ami trouvé</Text> : null
-          }
+          ListEmptyComponent={emptyMessage ? <Text style={styles.emptyText}>{emptyMessage}</Text> : null}
           renderItem={({ item }) => {
             const status = requestStatus[item.id] ?? 'idle';
             const initial = (item.prenom ?? '?').trim().charAt(0).toUpperCase();
@@ -209,6 +276,27 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontFamily: `${theme.fontBody}_400Regular`,
     fontSize: theme.fontSizes.md,
+  },
+  syncButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.xs,
+    height: 44,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  syncButtonText: {
+    color: theme.colors.accent,
+    fontFamily: `${theme.fontBody}_600SemiBold`,
+    fontSize: theme.fontSizes.sm,
+  },
+  syncDeniedText: {
+    color: theme.colors.muted,
+    fontFamily: `${theme.fontBody}_400Regular`,
+    fontSize: theme.fontSizes.xs,
+    textAlign: 'center',
   },
   list: {
     flex: 1,

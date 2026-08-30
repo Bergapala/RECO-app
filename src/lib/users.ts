@@ -20,6 +20,25 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
   return { id: data.id, prenom: data.prenom, photoUrl: data.photo_url };
 }
 
+/**
+ * Code d'invitation de l'utilisateur (voir la migration
+ * phone_invite_code.sql — généré automatiquement à l'inscription, jamais
+ * nul en pratique une fois le profil créé).
+ */
+export async function getInviteCode(userId: string): Promise<string | null> {
+  if (!isSupabaseConfigured) return null;
+
+  const { data, error } = await supabase
+    .from('users')
+    .select('invite_code')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  return data.invite_code;
+}
+
 export type ProfileStats = {
   recoCount: number;
   friendCount: number;

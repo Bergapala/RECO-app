@@ -22,6 +22,8 @@ export default function LoginScreen() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [pendingAction, setPendingAction] = useState<'login' | 'signup' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +55,10 @@ export default function LoginScreen() {
 
     setError(null);
     setPendingAction('signup');
-    const { error: signUpError } = await signUpWithEmail(email.trim(), password);
+    const { error: signUpError } = await signUpWithEmail(email.trim(), password, {
+      phone: phone.trim() || undefined,
+      inviteCode: inviteCode.trim() || undefined,
+    });
     setPendingAction(null);
 
     if (signUpError) {
@@ -121,6 +126,31 @@ export default function LoginScreen() {
                   />
                 </Pressable>
               </View>
+
+              <Text style={styles.signupHint}>Pour créer un compte (facultatif)</Text>
+
+              <TextInput
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="Numéro de téléphone"
+                placeholderTextColor={theme.colors.muted}
+                style={styles.input}
+                keyboardType="phone-pad"
+                autoComplete="tel"
+                textContentType="telephoneNumber"
+                returnKeyType="next"
+              />
+
+              <TextInput
+                value={inviteCode}
+                onChangeText={setInviteCode}
+                placeholder="Code d'invitation"
+                placeholderTextColor={theme.colors.muted}
+                style={styles.input}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                returnKeyType="done"
+              />
 
               {error && <Text style={styles.errorText}>{error}</Text>}
             </View>
@@ -214,6 +244,14 @@ const styles = StyleSheet.create({
   },
   passwordField: {
     justifyContent: 'center',
+  },
+  signupHint: {
+    color: theme.colors.muted,
+    fontFamily: `${theme.fontBody}_500Medium`,
+    fontSize: theme.fontSizes.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: theme.spacing.xs,
   },
   passwordInput: {
     paddingRight: 48,

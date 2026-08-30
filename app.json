@@ -39,6 +39,12 @@
         {
           "photosPermission": "RECO a besoin d'accéder à tes photos pour illustrer une reco."
         }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "RECO a besoin d'accéder à tes contacts pour retrouver tes amis déjà inscrits."
+        }
       ]
     ],
     "experiments": {
