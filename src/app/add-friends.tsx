@@ -1,3 +1,4 @@
+import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -27,6 +28,10 @@ export default function AddFriendsScreen() {
       <StatusBar style="light" />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
+          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backButton}>
+            <Feather name="arrow-left" size={22} color={theme.colors.text} />
+          </Pressable>
+
           <Text style={styles.title}>Ajoute tes amis</Text>
           <Text style={styles.subtitle}>Trouve tes amis par nom ou numéro de téléphone</Text>
         </View>
@@ -59,6 +64,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.md,
     gap: theme.spacing.sm,
+  },
+  backButton: {
+    position: 'absolute',
+    top: theme.spacing.md,
+    left: theme.spacing.lg,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
   },
   title: {
     color: theme.colors.text,

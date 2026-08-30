@@ -5,6 +5,7 @@ import { FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
+import { BottomTabBar } from '@/components/BottomTabBar';
 import { RecoCard } from '@/components/RecoCard';
 import { useRecoReactions } from '@/hooks/use-reco-reactions';
 import { getCurrentUserId } from '@/lib/auth';
@@ -45,7 +46,7 @@ export default function ProfileScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <FlatList
           data={recos}
           keyExtractor={(item) => item.id}
@@ -114,6 +115,8 @@ export default function ProfileScreen() {
           }
         />
       </SafeAreaView>
+
+      <BottomTabBar active="profile" />
     </View>
   );
 }

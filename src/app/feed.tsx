@@ -5,6 +5,7 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
+import { BottomTabBar } from '@/components/BottomTabBar';
 import { RecoCard } from '@/components/RecoCard';
 import { useRecoReactions } from '@/hooks/use-reco-reactions';
 import { getCurrentUserId } from '@/lib/auth';
@@ -103,7 +104,7 @@ export default function FeedScreen() {
             />
           )}
           ListEmptyComponent={
-            !loading ? (
+            !loading && friendCount !== null ? (
               friendCount === 0 ? (
                 <View style={styles.emptyState}>
                   <Text style={styles.emptyIcon}>👋</Text>
@@ -151,21 +152,7 @@ export default function FeedScreen() {
         />
       </SafeAreaView>
 
-      <SafeAreaView edges={['bottom']} style={styles.bottomBarSafeArea}>
-        <View style={styles.bottomBar}>
-          <Pressable style={styles.bottomBarButton}>
-            <Feather name="home" size={22} color={theme.colors.accent} />
-          </Pressable>
-
-          <Pressable onPress={() => router.push('/add-reco')} style={styles.addButton}>
-            <Feather name="plus" size={26} color={theme.colors.text} />
-          </Pressable>
-
-          <Pressable onPress={() => router.push('/profile')} style={styles.bottomBarButton}>
-            <Feather name="user" size={22} color={theme.colors.muted} />
-          </Pressable>
-        </View>
-      </SafeAreaView>
+      <BottomTabBar active="feed" />
     </View>
   );
 }
@@ -265,28 +252,5 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.85,
-  },
-  bottomBarSafeArea: {
-    backgroundColor: theme.colors.background,
-  },
-  bottomBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: theme.colors.border,
-  },
-  bottomBarButton: {
-    padding: theme.spacing.sm,
-  },
-  addButton: {
-    width: 52,
-    height: 52,
-    borderRadius: theme.borderRadius.full,
-    backgroundColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
