@@ -42,6 +42,7 @@ export type FeedReco = {
   };
   likeCount: number;
   discoveredCount: number;
+  commentCount: number;
   hasLiked: boolean;
   hasDiscovered: boolean;
 };
@@ -57,6 +58,7 @@ type RecoRow = {
   user_id: string;
   users: { id: string; prenom: string | null; photo_url: string | null } | null;
   reactions: { type: 'like' | 'discovered'; user_id: string }[] | null;
+  comments: { count: number }[] | null;
 };
 
 /**
@@ -106,7 +108,7 @@ export async function fetchFeedRecos(currentUserId: string | null): Promise<Feed
 }
 
 const RECO_SELECT =
-  'id, titre, url, commentaire, apercu_image, categorie, created_at, user_id, users(id, prenom, photo_url), reactions(type, user_id)';
+  'id, titre, url, commentaire, apercu_image, categorie, created_at, user_id, users(id, prenom, photo_url), reactions(type, user_id), comments(count)';
 
 function mapRecoRows(rows: RecoRow[], viewerId: string | null): FeedReco[] {
   return rows.map((row) => {
@@ -126,6 +128,7 @@ function mapRecoRows(rows: RecoRow[], viewerId: string | null): FeedReco[] {
       },
       likeCount: reactions.filter((r) => r.type === 'like').length,
       discoveredCount: reactions.filter((r) => r.type === 'discovered').length,
+      commentCount: row.comments?.[0]?.count ?? 0,
       hasLiked: reactions.some((r) => r.type === 'like' && r.user_id === viewerId),
       hasDiscovered: reactions.some((r) => r.type === 'discovered' && r.user_id === viewerId),
     };

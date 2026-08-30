@@ -5,7 +5,7 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
-import { BottomTabBar } from '@/components/BottomTabBar';
+import { BottomTabBar, FLOATING_NAV_CLEARANCE } from '@/components/BottomTabBar';
 import { RecoCard } from '@/components/RecoCard';
 import { useRecoReactions } from '@/hooks/use-reco-reactions';
 import { getCurrentUserId } from '@/lib/auth';
@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingTop: theme.spacing.sm,
-    paddingBottom: theme.spacing.xl,
+    paddingBottom: FLOATING_NAV_CLEARANCE,
     flexGrow: 1,
   },
   emptyState: {

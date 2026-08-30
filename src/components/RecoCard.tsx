@@ -7,6 +7,23 @@ import { theme } from '@/theme';
 
 const IMAGE_HEIGHT = 200;
 
+// Ombre légère commune à tous les éléments posés sur l'image (avatar,
+// pastille catégorie) pour qu'ils restent lisibles quelle que soit la
+// couleur de l'image en dessous.
+const overlayShadow = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.5,
+  shadowRadius: 3,
+  elevation: 3,
+};
+
+const overlayTextShadow = {
+  textShadowColor: 'rgba(0, 0, 0, 0.6)',
+  textShadowOffset: { width: 0, height: 1 },
+  textShadowRadius: 3,
+};
+
 type RecoCardProps = {
   reco: FeedReco;
   onToggleLike: (reco: FeedReco) => void;
@@ -26,6 +43,10 @@ export function RecoCard({
   const authorInitial = (reco.author.prenom ?? '?').trim().charAt(0).toUpperCase();
   const isOwnReco = reco.author.id === currentUserId;
 
+  function goToAuthor() {
+    router.push(isOwnReco ? '/profile' : `/profile/${reco.author.id}`);
+  }
+
   return (
     <Pressable
       onPress={() => router.push(`/reco/${reco.id}`)}
@@ -39,9 +60,22 @@ export function RecoCard({
           </View>
         )}
 
+        <Pressable onPress={goToAuthor} hitSlop={8} style={styles.authorOverlay}>
+          {reco.author.photoUrl ? (
+            <Image source={{ uri: reco.author.photoUrl }} style={[styles.avatar, overlayShadow]} />
+          ) : (
+            <View style={[styles.avatar, styles.avatarFallback, overlayShadow]}>
+              <Text style={styles.avatarInitial}>{authorInitial}</Text>
+            </View>
+          )}
+          <Text style={[styles.authorName, overlayTextShadow]}>
+            {reco.author.prenom ?? 'Sans nom'}
+          </Text>
+        </Pressable>
+
         {reco.categorie && (
-          <View style={styles.categoryTag}>
-            <Text style={styles.categoryTagText}>{reco.categorie}</Text>
+          <View style={[styles.categoryTag, overlayShadow]}>
+            <Text style={[styles.categoryTagText, overlayTextShadow]}>{reco.categorie}</Text>
           </View>
         )}
       </View>
@@ -54,39 +88,35 @@ export function RecoCard({
             {reco.commentaire}
           </Text>
         )}
+      </View>
 
-        <Pressable
-          onPress={() =>
-            router.push(isOwnReco ? '/profile' : `/profile/${reco.author.id}`)
-          }
-          hitSlop={8}
-          style={styles.authorRow}>
-          {reco.author.photoUrl ? (
-            <Image source={{ uri: reco.author.photoUrl }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, styles.avatarFallback]}>
-              <Text style={styles.avatarInitial}>{authorInitial}</Text>
-            </View>
-          )}
-          <Text style={styles.authorName}>{reco.author.prenom ?? 'Sans nom'}</Text>
-        </Pressable>
-
-        <View style={styles.reactionsRow}>
+      <View style={styles.actionsBar}>
+        <View style={styles.actionsLeft}>
           <Pressable
             onPress={() => onToggleLike(reco)}
             hitSlop={8}
-            style={styles.reactionButton}>
-            <Text style={styles.reactionEmoji}>{reco.hasLiked ? '❤️' : '🤍'}</Text>
-            <Text style={styles.reactionCount}>{reco.likeCount}</Text>
+            style={styles.actionButton}>
+            <Text style={styles.actionEmoji}>{reco.hasLiked ? '❤️' : '🤍'}</Text>
+            <Text style={styles.actionCount}>{reco.likeCount}</Text>
           </Pressable>
 
           <Pressable
             onPress={() => onToggleDiscovered(reco)}
             hitSlop={8}
-            style={styles.reactionButton}>
-            <Text style={styles.reactionEmoji}>👀</Text>
-            <Text style={styles.reactionCount}>{reco.discoveredCount}</Text>
+            style={styles.actionButton}>
+            <Text style={styles.actionEmoji}>👀</Text>
+            <Text style={styles.actionCount}>{reco.discoveredCount}</Text>
           </Pressable>
+
+          <View style={styles.actionButton}>
+            <Text style={styles.actionEmoji}>💬</Text>
+            <Text style={styles.actionCount}>{reco.commentCount}</Text>
+          </View>
+        </View>
+
+        {/* Bookmark : présent pour la V2, pas encore fonctionnel. */}
+        <View style={styles.bookmarkButton}>
+          <Feather name="bookmark" size={20} color={theme.colors.muted} />
         </View>
       </View>
     </Pressable>
@@ -116,17 +146,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  categoryTag: {
+  authorOverlay: {
     position: 'absolute',
     top: theme.spacing.sm,
     left: theme.spacing.sm,
-    backgroundColor: theme.withOpacity(theme.colors.accent, 0.2),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+  },
+  avatar: {
+    width: 28,
+    height: 28,
+    borderRadius: theme.borderRadius.full,
+  },
+  avatarFallback: {
+    backgroundColor: theme.colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitial: {
+    color: theme.colors.text,
+    fontFamily: `${theme.fontTitle}_700Bold`,
+    fontSize: theme.fontSizes.xs,
+  },
+  authorName: {
+    color: theme.colors.text,
+    fontFamily: `${theme.fontBody}_600SemiBold`,
+    fontSize: theme.fontSizes.sm,
+  },
+  categoryTag: {
+    position: 'absolute',
+    top: theme.spacing.sm,
+    right: theme.spacing.sm,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
     borderRadius: theme.borderRadius.full,
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: 4,
   },
   categoryTagText: {
-    color: theme.colors.accent,
+    color: theme.colors.text,
     fontFamily: `${theme.fontBody}_600SemiBold`,
     fontSize: theme.fontSizes.xs,
   },
@@ -145,49 +203,34 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.sm,
     lineHeight: theme.fontSizes.sm * 1.4,
   },
-  authorRow: {
+  actionsBar: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: theme.colors.card,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.colors.border,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+  },
+  actionsLeft: {
+    flexDirection: 'row',
     gap: theme.spacing.sm,
-    marginTop: theme.spacing.xs,
-    alignSelf: 'flex-start',
   },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: theme.borderRadius.full,
-  },
-  avatarFallback: {
-    backgroundColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarInitial: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.xs,
-  },
-  authorName: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_500Medium`,
-    fontSize: theme.fontSizes.sm,
-  },
-  reactionsRow: {
-    flexDirection: 'row',
-    gap: theme.spacing.lg,
-    marginTop: theme.spacing.xs,
-  },
-  reactionButton: {
+  actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.xs,
   },
-  reactionEmoji: {
+  actionEmoji: {
     fontSize: theme.fontSizes.md,
   },
-  reactionCount: {
+  actionCount: {
     color: theme.colors.muted,
     fontFamily: `${theme.fontBody}_400Regular`,
     fontSize: theme.fontSizes.sm,
+  },
+  bookmarkButton: {
+    padding: theme.spacing.xs,
   },
 });

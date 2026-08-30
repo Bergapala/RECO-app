@@ -92,12 +92,23 @@ export async function markAllAsRead(userId: string): Promise<void> {
   await supabase.from('notifications').update({ read: true }).eq('user_id', userId).eq('read', false);
 }
 
-/** Abonnement Realtime pour rafraîchir le badge de la cloche en direct. */
+// Compteur pour donner un topic de channel unique à chaque abonnement (voir
+// plus bas) — sans ça, deux composants montés en même temps et abonnés au
+// même `userId` (ex. la cloche du feed + le badge du bandeau flottant)
+// obtiendraient le même objet `RealtimeChannel` de Supabase pour un topic
+// identique, et le second `.on()` planterait car le channel est déjà
+// `subscribe()`.
+let notificationsChannelCounter = 0;
+
+/** Abonnement Realtime pour rafraîchir un badge de notifications en direct
+ * (peut être appelé par plusieurs composants en parallèle pour le même
+ * utilisateur — chaque appel obtient son propre channel). */
 export function subscribeToNotifications(userId: string, onChange: () => void): () => void {
   if (!isSupabaseConfigured) return () => {};
 
+  notificationsChannelCounter += 1;
   const channel = supabase
-    .channel(`notifications:${userId}`)
+    .channel(`notifications:${userId}:${notificationsChannelCounter}`)
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
