@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -21,6 +22,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useRecoReactions } from '@/hooks/use-reco-reactions';
 import { getCurrentUserId } from '@/lib/auth';
 import { fetchComments, postComment, subscribeToComments, type RecoComment } from '@/lib/comments';
+import { getFriendsList, type FriendListItem } from '@/lib/friends';
 import { deleteReco, getRecoById, type FeedReco } from '@/lib/recos';
 import { theme } from '@/theme';
 
@@ -28,6 +30,39 @@ function formatDate(iso: string): string {
   return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' }).format(
     new Date(iso),
   );
+}
+
+/**
+ * Découpe le texte d'un commentaire déjà posté pour mettre en évidence les
+ * @mentions (voir handleSelectMention) — rendues en colors.accent via des
+ * <Text> imbriqués, RN les fusionne visuellement dans le paragraphe.
+ */
+function renderMentionText(text: string) {
+  return text.split(/(@[^\s@]+)/g).map((part, index) =>
+    part.startsWith('@') ? (
+      <Text key={index} style={{ color: theme.colors.accent }}>
+        {part}
+      </Text>
+    ) : (
+      <Text key={index}>{part}</Text>
+    ),
+  );
+}
+
+/**
+ * Renvoie le texte tapé après le dernier "@" avant le curseur (ex. "@Lu" ->
+ * "Lu"), ou `null` s'il n'y a pas de mention en cours (pas de "@", ou un
+ * espace/retour à la ligne déjà tapé après — la mention est alors terminée).
+ */
+function getMentionQuery(text: string, cursor: number): string | null {
+  const beforeCursor = text.slice(0, cursor);
+  const atIndex = beforeCursor.lastIndexOf('@');
+  if (atIndex === -1) return null;
+
+  const afterAt = beforeCursor.slice(atIndex + 1);
+  if (/[\s@]/.test(afterAt)) return null;
+
+  return afterAt;
 }
 
 // Le champ de commentaire s'agrandit avec le texte tapé, entre 1 et 4
@@ -48,6 +83,8 @@ export default function RecoDetailScreen() {
   const [comments, setComments] = useState<RecoComment[]>([]);
   const [commentText, setCommentText] = useState('');
   const [commentInputHeight, setCommentInputHeight] = useState(COMMENT_INPUT_MIN_HEIGHT);
+  const [commentSelection, setCommentSelection] = useState({ start: 0, end: 0 });
+  const [friends, setFriends] = useState<FriendListItem[]>([]);
   const [posting, setPosting] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -69,6 +106,11 @@ export default function RecoDetailScreen() {
       setRecos(found ? [found] : []);
       setComments(existingComments);
       setLoading(false);
+
+      // Pour les suggestions @mention (voir plus bas) — la liste d'amis
+      // n'a pas besoin d'être rafraîchie en direct, un chargement au
+      // montage de l'écran suffit.
+      if (userId) setFriends(await getFriendsList(userId));
     });
 
     const unsubscribe = subscribeToComments(id, (comment) => {
@@ -86,6 +128,18 @@ export default function RecoDetailScreen() {
     const timeout = setTimeout(() => commentInputRef.current?.focus(), 300);
     return () => clearTimeout(timeout);
   }, [focusComment, loading]);
+
+  // À chaque ouverture du clavier (qu'elle vienne d'un tap direct sur le
+  // champ ou du bouton 💬), on scrolle la page pour amener le dernier
+  // commentaire juste au-dessus du champ de saisie qui, lui, remonte déjà
+  // avec le clavier grâce au KeyboardAvoidingView autour de tout l'écran.
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const subscription = Keyboard.addListener(showEvent, () => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    });
+    return () => subscription.remove();
+  }, []);
 
   async function handleOpenLink() {
     if (!reco?.url) return;
@@ -136,11 +190,36 @@ export default function RecoDetailScreen() {
   }
 
   function handleFocusCommentInput() {
-    scrollViewRef.current?.scrollToEnd({ animated: true });
+    // Le scroll est géré par le listener keyboardWillShow/keyboardDidShow
+    // ci-dessus dès que ce focus() ouvre effectivement le clavier — pas
+    // besoin de le déclencher ici aussi.
     commentInputRef.current?.focus();
   }
 
+  /** Insère "@prénom " à l'emplacement du "@..." en cours de frappe et
+   * ferme la liste de suggestions. */
+  function handleSelectMention(friend: FriendListItem) {
+    const beforeCursor = commentText.slice(0, commentSelection.start);
+    const atIndex = beforeCursor.lastIndexOf('@');
+    if (atIndex === -1) return;
+
+    const insertion = `@${friend.prenom ?? 'ami'} `;
+    const newText = commentText.slice(0, atIndex) + insertion + commentText.slice(commentSelection.start);
+    const newCursor = atIndex + insertion.length;
+
+    setCommentText(newText);
+    setCommentSelection({ start: newCursor, end: newCursor });
+  }
+
   const isOwn = reco?.author.id === currentUserId;
+
+  const mentionQuery = getMentionQuery(commentText, commentSelection.start);
+  const mentionSuggestions =
+    mentionQuery !== null
+      ? friends
+          .filter((friend) => (friend.prenom ?? '').toLowerCase().startsWith(mentionQuery.toLowerCase()))
+          .slice(0, 5)
+      : [];
 
   if (loading) {
     return (
@@ -298,7 +377,7 @@ export default function RecoDetailScreen() {
                           <Text style={styles.commentAuthor}>{item.author.prenom ?? 'Sans nom'}</Text>
                           <Text style={styles.commentDate}>{formatDate(item.createdAt)}</Text>
                         </View>
-                        <Text style={styles.commentText}>{item.texte}</Text>
+                        <Text style={styles.commentText}>{renderMentionText(item.texte)}</Text>
                       </View>
                     </View>
                   ))}
@@ -307,11 +386,35 @@ export default function RecoDetailScreen() {
             </View>
           </ScrollView>
 
+          {mentionQuery !== null && mentionSuggestions.length > 0 && (
+            <View style={styles.mentionSuggestions}>
+              {mentionSuggestions.map((friend) => (
+                <Pressable
+                  key={friend.id}
+                  onPress={() => handleSelectMention(friend)}
+                  style={({ pressed }) => [styles.mentionRow, pressed && styles.pressed]}>
+                  {friend.photoUrl ? (
+                    <Image source={{ uri: friend.photoUrl }} style={styles.mentionAvatar} />
+                  ) : (
+                    <View style={[styles.mentionAvatar, styles.avatarFallback]}>
+                      <Text style={styles.mentionAvatarInitial}>
+                        {(friend.prenom ?? '?').trim().charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                  <Text style={styles.mentionName}>{friend.prenom ?? 'Sans nom'}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+
           <View style={styles.commentInputRow}>
             <TextInput
               ref={commentInputRef}
               value={commentText}
               onChangeText={setCommentText}
+              selection={commentSelection}
+              onSelectionChange={(event) => setCommentSelection(event.nativeEvent.selection)}
               onContentSizeChange={(event) => {
                 const nextHeight =
                   event.nativeEvent.contentSize.height + COMMENT_INPUT_VERTICAL_PADDING * 2;
@@ -562,6 +665,34 @@ const styles = StyleSheet.create({
   },
   bookmarkButton: {
     padding: theme.spacing.xs,
+  },
+  mentionSuggestions: {
+    backgroundColor: theme.colors.card,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.colors.border,
+    paddingVertical: theme.spacing.xs,
+  },
+  mentionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.sm,
+  },
+  mentionAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: theme.borderRadius.full,
+  },
+  mentionAvatarInitial: {
+    color: theme.colors.text,
+    fontFamily: `${theme.fontTitle}_700Bold`,
+    fontSize: theme.fontSizes.xs,
+  },
+  mentionName: {
+    color: theme.colors.text,
+    fontFamily: `${theme.fontBody}_500Medium`,
+    fontSize: theme.fontSizes.sm,
   },
   commentInputRow: {
     flexDirection: 'row',
