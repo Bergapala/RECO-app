@@ -4,13 +4,13 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   Image,
   Keyboard,
   KeyboardAvoidingView,
   Linking,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -85,10 +85,11 @@ export default function RecoDetailScreen() {
   const [commentInputHeight, setCommentInputHeight] = useState(COMMENT_INPUT_MIN_HEIGHT);
   const [commentSelection, setCommentSelection] = useState({ start: 0, end: 0 });
   const [friends, setFriends] = useState<FriendListItem[]>([]);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [posting, setPosting] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const scrollViewRef = useRef<ScrollView>(null);
+  const commentsListRef = useRef<FlatList<RecoComment>>(null);
   const commentInputRef = useRef<TextInput>(null);
 
   const { onToggleLike, onToggleDiscovered } = useRecoReactions(setRecos, currentUserId);
@@ -129,17 +130,49 @@ export default function RecoDetailScreen() {
     return () => clearTimeout(timeout);
   }, [focusComment, loading]);
 
-  // À chaque ouverture du clavier (qu'elle vienne d'un tap direct sur le
-  // champ ou du bouton 💬), on scrolle la page pour amener le dernier
-  // commentaire juste au-dessus du champ de saisie qui, lui, remonte déjà
-  // avec le clavier grâce au KeyboardAvoidingView autour de tout l'écran.
+  /** Amène le dernier commentaire juste au-dessus du champ de saisie (ou,
+   * s'il n'y en a aucun, scrolle simplement pour montrer le champ). */
+  function scrollToLastComment(animated: boolean) {
+    if (comments.length > 0) {
+      commentsListRef.current?.scrollToIndex({
+        index: comments.length - 1,
+        viewPosition: 1,
+        animated,
+      });
+    } else {
+      commentsListRef.current?.scrollToEnd({ animated });
+    }
+  }
+
+  // Ouverture du clavier (tap sur le champ ou bouton 💬) : keyboardWillShow
+  // est plus fluide que keyboardDidShow sur iOS (se déclenche au début de
+  // l'animation plutôt qu'à la fin) — le petit délai laisse cette animation
+  // démarrer avant de scroller, pour un mouvement synchronisé plutôt que
+  // deux à la suite. Se réabonne à chaque changement du nombre de
+  // commentaires pour que le callback vise toujours le bon dernier index.
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const subscription = Keyboard.addListener(showEvent, () => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSubscription = Keyboard.addListener(showEvent, () => {
+      setKeyboardVisible(true);
+      setTimeout(() => scrollToLastComment(true), 150);
     });
-    return () => subscription.remove();
-  }, []);
+    const hideSubscription = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comments.length]);
+
+  // Un nouveau commentaire arrive (Realtime) pendant que le clavier est
+  // déjà ouvert : on scrolle pour le garder visible au-dessus du champ.
+  useEffect(() => {
+    if (keyboardVisible) scrollToLastComment(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comments.length]);
 
   async function handleOpenLink() {
     if (!reco?.url) return;
@@ -268,123 +301,131 @@ export default function RecoDetailScreen() {
           style={styles.flexFill}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={12}>
-          <ScrollView
-            ref={scrollViewRef}
+          <FlatList
+            ref={commentsListRef}
+            data={comments}
+            keyExtractor={(item) => item.id}
             contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled">
-            {reco.apercuImage ? (
-              <Image source={{ uri: reco.apercuImage }} style={styles.image} />
-            ) : (
-              <View style={[styles.image, styles.imagePlaceholder]}>
-                <Feather name="image" size={40} color={theme.colors.muted} />
-              </View>
-            )}
-
-            <View style={styles.body}>
-              {reco.categorie && (
-                <View style={styles.categoryTag}>
-                  <Text style={styles.categoryTagText}>{reco.categorie}</Text>
-                </View>
-              )}
-
-              <Text style={styles.title}>{reco.titre}</Text>
-
-              <Pressable
-                onPress={() =>
-                  router.push(isOwn ? '/profile' : `/profile/${reco.author.id}`)
-                }
-                hitSlop={8}
-                style={styles.authorRow}>
-                {reco.author.photoUrl ? (
-                  <Image source={{ uri: reco.author.photoUrl }} style={styles.avatar} />
+            keyboardShouldPersistTaps="handled"
+            onScrollToIndexFailed={() => {
+              // Les hauteurs des lignes varient selon la longueur des
+              // commentaires (pas de getItemLayout fiable) — si la mesure
+              // n'était pas encore prête, scrollToEnd amène de toute façon
+              // au même endroit puisque la cible est le dernier item.
+              commentsListRef.current?.scrollToEnd({ animated: true });
+            }}
+            ListHeaderComponent={
+              <>
+                {reco.apercuImage ? (
+                  <Image source={{ uri: reco.apercuImage }} style={styles.image} />
                 ) : (
-                  <View style={[styles.avatar, styles.avatarFallback]}>
-                    <Text style={styles.avatarInitial}>
-                      {(reco.author.prenom ?? '?').trim().charAt(0).toUpperCase()}
-                    </Text>
+                  <View style={[styles.image, styles.imagePlaceholder]}>
+                    <Feather name="image" size={40} color={theme.colors.muted} />
                   </View>
                 )}
-                <Text style={styles.authorName}>{reco.author.prenom ?? 'Sans nom'}</Text>
-                <Text style={styles.date}>{formatDate(reco.createdAt)}</Text>
-              </Pressable>
 
-              {reco.commentaire && <Text style={styles.comment}>{reco.commentaire}</Text>}
+                <View style={styles.body}>
+                  <Text style={styles.title}>{reco.titre}</Text>
 
-              {reco.url && (
-                <Pressable
-                  onPress={handleOpenLink}
-                  style={({ pressed }) => [styles.linkButton, pressed && styles.pressed]}>
-                  <Text style={styles.linkButtonText}>🔗 Ouvrir le lien</Text>
-                </Pressable>
-              )}
-
-              <View style={styles.actionsBar}>
-                <View style={styles.actionsLeft}>
-                  <Pressable
-                    onPress={() => reco && onToggleLike(reco)}
-                    hitSlop={8}
-                    style={styles.actionButton}>
-                    <Text style={styles.actionEmoji}>{reco.hasLiked ? '❤️' : '🤍'}</Text>
-                    <Text style={styles.actionCount}>{reco.likeCount}</Text>
-                  </Pressable>
-
-                  <Pressable
-                    onPress={() => reco && onToggleDiscovered(reco)}
-                    hitSlop={8}
-                    style={styles.actionButton}>
-                    <Text style={styles.actionEmoji}>👀</Text>
-                    <Text style={styles.actionCount}>{reco.discoveredCount}</Text>
-                  </Pressable>
-
-                  <Pressable
-                    onPress={handleFocusCommentInput}
-                    hitSlop={8}
-                    style={styles.actionButton}>
-                    <Text style={styles.actionEmoji}>💬</Text>
-                    <Text style={styles.actionCount}>{comments.length}</Text>
-                  </Pressable>
-                </View>
-
-                {/* Bookmark : présent pour la V2, pas encore fonctionnel. */}
-                <View style={styles.bookmarkButton}>
-                  <Feather name="bookmark" size={20} color={theme.colors.muted} />
-                </View>
-              </View>
-
-              <View style={styles.separator} />
-            </View>
-
-            <View style={styles.commentsSection}>
-              <Text style={styles.commentsTitle}>Commentaires</Text>
-
-              {comments.length === 0 ? (
-                <Text style={styles.emptyText}>Sois le premier à commenter</Text>
-              ) : (
-                <View style={styles.commentsList}>
-                  {comments.map((item) => (
-                    <View key={item.id} style={styles.commentRow}>
-                      {item.author.photoUrl ? (
-                        <Image source={{ uri: item.author.photoUrl }} style={styles.commentAvatar} />
+                  <View style={styles.metaRow}>
+                    <Pressable
+                      onPress={() =>
+                        router.push(isOwn ? '/profile' : `/profile/${reco.author.id}`)
+                      }
+                      hitSlop={8}
+                      style={styles.authorRow}>
+                      {reco.author.photoUrl ? (
+                        <Image source={{ uri: reco.author.photoUrl }} style={styles.avatar} />
                       ) : (
-                        <View style={[styles.commentAvatar, styles.avatarFallback]}>
-                          <Text style={styles.commentAvatarInitial}>
-                            {(item.author.prenom ?? '?').trim().charAt(0).toUpperCase()}
+                        <View style={[styles.avatar, styles.avatarFallback]}>
+                          <Text style={styles.avatarInitial}>
+                            {(reco.author.prenom ?? '?').trim().charAt(0).toUpperCase()}
                           </Text>
                         </View>
                       )}
-                      <View style={styles.commentBody}>
-                        <View style={styles.commentHeader}>
-                          <Text style={styles.commentAuthor}>{item.author.prenom ?? 'Sans nom'}</Text>
-                          <Text style={styles.commentDate}>{formatDate(item.createdAt)}</Text>
-                        </View>
-                        <Text style={styles.commentText}>{renderMentionText(item.texte)}</Text>
+                      <Text style={styles.authorName}>{reco.author.prenom ?? 'Sans nom'}</Text>
+                      <Text style={styles.date}>{formatDate(reco.createdAt)}</Text>
+                    </Pressable>
+
+                    {reco.categorie && (
+                      <View style={styles.categoryTag}>
+                        <Text style={styles.categoryTagText}>{reco.categorie}</Text>
                       </View>
+                    )}
+                  </View>
+
+                  {reco.commentaire && <Text style={styles.comment}>{reco.commentaire}</Text>}
+
+                  {reco.url && (
+                    <Pressable
+                      onPress={handleOpenLink}
+                      style={({ pressed }) => [styles.linkButton, pressed && styles.pressed]}>
+                      <Text style={styles.linkButtonText}>🔗 Ouvrir le lien</Text>
+                    </Pressable>
+                  )}
+
+                  <View style={styles.actionsBar}>
+                    <View style={styles.actionsLeft}>
+                      <Pressable
+                        onPress={() => reco && onToggleLike(reco)}
+                        hitSlop={8}
+                        style={styles.actionButton}>
+                        <Text style={styles.actionEmoji}>{reco.hasLiked ? '❤️' : '🤍'}</Text>
+                        <Text style={styles.actionCount}>{reco.likeCount}</Text>
+                      </Pressable>
+
+                      <Pressable
+                        onPress={() => reco && onToggleDiscovered(reco)}
+                        hitSlop={8}
+                        style={styles.actionButton}>
+                        <Text style={styles.actionEmoji}>👀</Text>
+                        <Text style={styles.actionCount}>{reco.discoveredCount}</Text>
+                      </Pressable>
+
+                      <Pressable
+                        onPress={handleFocusCommentInput}
+                        hitSlop={8}
+                        style={styles.actionButton}>
+                        <Text style={styles.actionEmoji}>💬</Text>
+                        <Text style={styles.actionCount}>{comments.length}</Text>
+                      </Pressable>
                     </View>
-                  ))}
+
+                    {/* Bookmark : présent pour la V2, pas encore fonctionnel. */}
+                    <View style={styles.bookmarkButton}>
+                      <Feather name="bookmark" size={20} color={theme.colors.muted} />
+                    </View>
+                  </View>
+
+                  <View style={styles.separator} />
+
+                  <Text style={styles.commentsTitle}>Commentaires</Text>
                 </View>
-              )}
-            </View>
-          </ScrollView>
+              </>
+            }
+            ItemSeparatorComponent={() => <View style={styles.commentSeparator} />}
+            ListEmptyComponent={<Text style={styles.emptyText}>Sois le premier à commenter</Text>}
+            renderItem={({ item }) => (
+              <View style={styles.commentRow}>
+                {item.author.photoUrl ? (
+                  <Image source={{ uri: item.author.photoUrl }} style={styles.commentAvatar} />
+                ) : (
+                  <View style={[styles.commentAvatar, styles.avatarFallback]}>
+                    <Text style={styles.commentAvatarInitial}>
+                      {(item.author.prenom ?? '?').trim().charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.commentBody}>
+                  <View style={styles.commentHeader}>
+                    <Text style={styles.commentAuthor}>{item.author.prenom ?? 'Sans nom'}</Text>
+                    <Text style={styles.commentDate}>{formatDate(item.createdAt)}</Text>
+                  </View>
+                  <Text style={styles.commentText}>{renderMentionText(item.texte)}</Text>
+                </View>
+              </View>
+            )}
+          />
 
           {mentionQuery !== null && mentionSuggestions.length > 0 && (
             <View style={styles.mentionSuggestions}>
@@ -504,34 +545,27 @@ const styles = StyleSheet.create({
   body: {
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.sm,
     gap: theme.spacing.sm,
-  },
-  categoryTag: {
-    alignSelf: 'flex-start',
-    backgroundColor: theme.withOpacity(theme.colors.accent, 0.2),
-    borderRadius: theme.borderRadius.full,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 4,
-  },
-  categoryTagText: {
-    color: theme.colors.accent,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.xs,
   },
   title: {
     color: theme.colors.text,
     fontFamily: `${theme.fontTitle}_700Bold`,
     fontSize: theme.fontSizes.xl,
   },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   authorRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.sm,
-    alignSelf: 'flex-start',
   },
   avatar: {
-    width: 40,
-    height: 40,
+    width: 28,
+    height: 28,
     borderRadius: theme.borderRadius.full,
   },
   avatarFallback: {
@@ -542,17 +576,28 @@ const styles = StyleSheet.create({
   avatarInitial: {
     color: theme.colors.text,
     fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.sm,
+    fontSize: theme.fontSizes.xs,
   },
   authorName: {
     color: theme.colors.text,
     fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.md,
+    fontSize: theme.fontSizes.sm,
   },
   date: {
     color: theme.colors.muted,
     fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.sm,
+    fontSize: theme.fontSizes.xs,
+  },
+  categoryTag: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: theme.borderRadius.full,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 4,
+  },
+  categoryTagText: {
+    color: theme.colors.text,
+    fontFamily: `${theme.fontBody}_600SemiBold`,
+    fontSize: theme.fontSizes.xs,
   },
   comment: {
     color: theme.colors.text,
@@ -576,11 +621,6 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: theme.colors.border,
   },
-  commentsSection: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.sm,
-    gap: theme.spacing.sm,
-  },
   commentsTitle: {
     color: theme.colors.text,
     fontFamily: `${theme.fontTitle}_700Bold`,
@@ -590,13 +630,15 @@ const styles = StyleSheet.create({
     color: theme.colors.muted,
     fontFamily: `${theme.fontBody}_400Regular`,
     fontSize: theme.fontSizes.sm,
+    paddingHorizontal: theme.spacing.lg,
   },
-  commentsList: {
-    gap: theme.spacing.md,
+  commentSeparator: {
+    height: theme.spacing.md,
   },
   commentRow: {
     flexDirection: 'row',
     gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.lg,
   },
   commentAvatar: {
     width: 32,
