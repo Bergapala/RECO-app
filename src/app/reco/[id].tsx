@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -41,6 +41,9 @@ export default function RecoDetailScreen() {
   const [commentText, setCommentText] = useState('');
   const [posting, setPosting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [commentsOffsetY, setCommentsOffsetY] = useState(0);
+
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const { onToggleLike, onToggleDiscovered } = useRecoReactions(setRecos, currentUserId);
   const reco = recos[0] ?? null;
@@ -113,6 +116,10 @@ export default function RecoDetailScreen() {
     router.push({ pathname: '/add-reco', params: { id } });
   }
 
+  function handleScrollToComments() {
+    scrollViewRef.current?.scrollTo({ y: commentsOffsetY, animated: true });
+  }
+
   const isOwn = reco?.author.id === currentUserId;
 
   if (loading) {
@@ -162,7 +169,10 @@ export default function RecoDetailScreen() {
           style={styles.flexFill}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={12}>
-          <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          <ScrollView
+            ref={scrollViewRef}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled">
             {reco.apercuImage ? (
               <Image source={{ uri: reco.apercuImage }} style={styles.image} />
             ) : (
@@ -210,27 +220,11 @@ export default function RecoDetailScreen() {
               )}
 
               <View style={styles.separator} />
+            </View>
 
-              <View style={styles.reactionsRow}>
-                <Pressable
-                  onPress={() => reco && onToggleLike(reco)}
-                  hitSlop={8}
-                  style={styles.reactionButton}>
-                  <Text style={styles.reactionEmoji}>{reco.hasLiked ? '❤️' : '🤍'}</Text>
-                  <Text style={styles.reactionCount}>{reco.likeCount}</Text>
-                </Pressable>
-
-                <Pressable
-                  onPress={() => reco && onToggleDiscovered(reco)}
-                  hitSlop={8}
-                  style={styles.reactionButton}>
-                  <Text style={styles.reactionEmoji}>👀</Text>
-                  <Text style={styles.reactionCount}>{reco.discoveredCount}</Text>
-                </Pressable>
-              </View>
-
-              <View style={styles.separator} />
-
+            <View
+              style={styles.commentsSection}
+              onLayout={(event) => setCommentsOffsetY(event.nativeEvent.layout.y)}>
               <Text style={styles.commentsTitle}>Commentaires</Text>
 
               {comments.length === 0 ? (
@@ -261,6 +255,36 @@ export default function RecoDetailScreen() {
               )}
             </View>
           </ScrollView>
+
+          <View style={styles.actionsBar}>
+            <View style={styles.actionsLeft}>
+              <Pressable
+                onPress={() => reco && onToggleLike(reco)}
+                hitSlop={8}
+                style={styles.actionButton}>
+                <Text style={styles.actionEmoji}>{reco.hasLiked ? '❤️' : '🤍'}</Text>
+                <Text style={styles.actionCount}>{reco.likeCount}</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => reco && onToggleDiscovered(reco)}
+                hitSlop={8}
+                style={styles.actionButton}>
+                <Text style={styles.actionEmoji}>👀</Text>
+                <Text style={styles.actionCount}>{reco.discoveredCount}</Text>
+              </Pressable>
+
+              <Pressable onPress={handleScrollToComments} hitSlop={8} style={styles.actionButton}>
+                <Text style={styles.actionEmoji}>💬</Text>
+                <Text style={styles.actionCount}>{comments.length}</Text>
+              </Pressable>
+            </View>
+
+            {/* Bookmark : présent pour la V2, pas encore fonctionnel. */}
+            <View style={styles.bookmarkButton}>
+              <Feather name="bookmark" size={20} color={theme.colors.muted} />
+            </View>
+          </View>
 
           <View style={styles.commentInputRow}>
             <TextInput
@@ -408,22 +432,10 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: theme.colors.border,
   },
-  reactionsRow: {
-    flexDirection: 'row',
-    gap: theme.spacing.lg,
-  },
-  reactionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
-  },
-  reactionEmoji: {
-    fontSize: theme.fontSizes.lg,
-  },
-  reactionCount: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.sm,
+  commentsSection: {
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.sm,
+    gap: theme.spacing.sm,
   },
   commentsTitle: {
     color: theme.colors.text,
@@ -475,6 +487,36 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontFamily: `${theme.fontBody}_400Regular`,
     fontSize: theme.fontSizes.sm,
+  },
+  actionsBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: theme.colors.card,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.colors.border,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+  },
+  actionsLeft: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+  },
+  actionEmoji: {
+    fontSize: theme.fontSizes.md,
+  },
+  actionCount: {
+    color: theme.colors.muted,
+    fontFamily: `${theme.fontBody}_400Regular`,
+    fontSize: theme.fontSizes.sm,
+  },
+  bookmarkButton: {
+    padding: theme.spacing.xs,
   },
   commentInputRow: {
     flexDirection: 'row',
