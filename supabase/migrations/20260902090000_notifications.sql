@@ -13,25 +13,15 @@
 -- ============================================================================
 
 -- notif_day : 0 = lundi ... 6 = dimanche.
--- notif_hour : un des créneaux 8-10, 12-14, 16-18, 20-22 (voir la
--- contrainte plus bas).
+-- notif_hour : un des creneaux 8-10, 12-14, 16-18, 20-22.
+-- Contraintes definies directement sur la colonne (inline) plutot que via
+-- des ALTER TABLE ADD CONSTRAINT separes.
 alter table public.users
   add column if not exists notif_enabled boolean not null default true,
-  add column if not exists notif_day smallint,
-  add column if not exists notif_hour text,
+  add column if not exists notif_day smallint check (notif_day between 0 and 6),
+  add column if not exists notif_hour text check (notif_hour in ('8-10', '12-14', '16-18', '20-22')),
   add column if not exists notif_reactions boolean not null default true,
   add column if not exists notif_new_recos boolean not null default true;
-
-alter table public.users
-  drop constraint if exists users_notif_day_check;
-alter table public.users
-  add constraint users_notif_day_check check (notif_day is null or notif_day between 0 and 6);
-
-alter table public.users
-  drop constraint if exists users_notif_hour_check;
-alter table public.users
-  add constraint users_notif_hour_check
-  check (notif_hour is null or notif_hour in ('8-10', '12-14', '16-18', '20-22'));
 
 -- ============================================================================
 -- 2. Table notifications
