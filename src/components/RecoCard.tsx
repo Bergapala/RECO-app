@@ -108,10 +108,15 @@ export function RecoCard({
             <Text style={styles.actionCount}>{reco.discoveredCount}</Text>
           </Pressable>
 
-          <View style={styles.actionButton}>
+          <Pressable
+            onPress={() =>
+              router.push({ pathname: '/reco/[id]', params: { id: reco.id, focusComment: '1' } })
+            }
+            hitSlop={8}
+            style={styles.actionButton}>
             <Text style={styles.actionEmoji}>💬</Text>
             <Text style={styles.actionCount}>{reco.commentCount}</Text>
-          </View>
+          </Pressable>
         </View>
 
         {/* Bookmark : présent pour la V2, pas encore fonctionnel. */}

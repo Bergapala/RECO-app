@@ -30,20 +30,29 @@ function formatDate(iso: string): string {
   );
 }
 
+// Le champ de commentaire s'agrandit avec le texte tapé, entre 1 et 4
+// lignes (au-delà, il scrolle en interne — comportement natif d'un
+// TextInput multiline une fois sa hauteur plafonnée).
+const COMMENT_INPUT_LINE_HEIGHT = theme.fontSizes.sm * 1.4;
+const COMMENT_INPUT_VERTICAL_PADDING = theme.spacing.sm;
+const COMMENT_INPUT_MIN_HEIGHT = COMMENT_INPUT_LINE_HEIGHT + COMMENT_INPUT_VERTICAL_PADDING * 2;
+const COMMENT_INPUT_MAX_HEIGHT = COMMENT_INPUT_LINE_HEIGHT * 4 + COMMENT_INPUT_VERTICAL_PADDING * 2;
+
 export default function RecoDetailScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, focusComment } = useLocalSearchParams<{ id: string; focusComment?: string }>();
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [recos, setRecos] = useState<FeedReco[]>([]);
   const [loading, setLoading] = useState(true);
   const [comments, setComments] = useState<RecoComment[]>([]);
   const [commentText, setCommentText] = useState('');
+  const [commentInputHeight, setCommentInputHeight] = useState(COMMENT_INPUT_MIN_HEIGHT);
   const [posting, setPosting] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [commentsOffsetY, setCommentsOffsetY] = useState(0);
 
   const scrollViewRef = useRef<ScrollView>(null);
+  const commentInputRef = useRef<TextInput>(null);
 
   const { onToggleLike, onToggleDiscovered } = useRecoReactions(setRecos, currentUserId);
   const reco = recos[0] ?? null;
@@ -69,6 +78,15 @@ export default function RecoDetailScreen() {
     return unsubscribe;
   }, [id]);
 
+  // Venant du bouton 💬 du feed (RecoCard) : focus direct sur le champ de
+  // commentaire une fois l'écran prêt. Le petit délai laisse le temps à la
+  // transition de navigation et au clavier de s'installer proprement.
+  useEffect(() => {
+    if (!focusComment || loading) return;
+    const timeout = setTimeout(() => commentInputRef.current?.focus(), 300);
+    return () => clearTimeout(timeout);
+  }, [focusComment, loading]);
+
   async function handleOpenLink() {
     if (!reco?.url) return;
     try {
@@ -87,6 +105,7 @@ export default function RecoDetailScreen() {
 
     if (!error) {
       setCommentText('');
+      setCommentInputHeight(COMMENT_INPUT_MIN_HEIGHT);
       // Pas besoin d'ajouter localement : l'abonnement Realtime reçoit
       // l'INSERT (y compris les nôtres) et met la liste à jour.
     }
@@ -116,8 +135,9 @@ export default function RecoDetailScreen() {
     router.push({ pathname: '/add-reco', params: { id } });
   }
 
-  function handleScrollToComments() {
-    scrollViewRef.current?.scrollTo({ y: commentsOffsetY, animated: true });
+  function handleFocusCommentInput() {
+    scrollViewRef.current?.scrollToEnd({ animated: true });
+    commentInputRef.current?.focus();
   }
 
   const isOwn = reco?.author.id === currentUserId;
@@ -219,12 +239,43 @@ export default function RecoDetailScreen() {
                 </Pressable>
               )}
 
+              <View style={styles.actionsBar}>
+                <View style={styles.actionsLeft}>
+                  <Pressable
+                    onPress={() => reco && onToggleLike(reco)}
+                    hitSlop={8}
+                    style={styles.actionButton}>
+                    <Text style={styles.actionEmoji}>{reco.hasLiked ? '❤️' : '🤍'}</Text>
+                    <Text style={styles.actionCount}>{reco.likeCount}</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => reco && onToggleDiscovered(reco)}
+                    hitSlop={8}
+                    style={styles.actionButton}>
+                    <Text style={styles.actionEmoji}>👀</Text>
+                    <Text style={styles.actionCount}>{reco.discoveredCount}</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={handleFocusCommentInput}
+                    hitSlop={8}
+                    style={styles.actionButton}>
+                    <Text style={styles.actionEmoji}>💬</Text>
+                    <Text style={styles.actionCount}>{comments.length}</Text>
+                  </Pressable>
+                </View>
+
+                {/* Bookmark : présent pour la V2, pas encore fonctionnel. */}
+                <View style={styles.bookmarkButton}>
+                  <Feather name="bookmark" size={20} color={theme.colors.muted} />
+                </View>
+              </View>
+
               <View style={styles.separator} />
             </View>
 
-            <View
-              style={styles.commentsSection}
-              onLayout={(event) => setCommentsOffsetY(event.nativeEvent.layout.y)}>
+            <View style={styles.commentsSection}>
               <Text style={styles.commentsTitle}>Commentaires</Text>
 
               {comments.length === 0 ? (
@@ -256,43 +307,22 @@ export default function RecoDetailScreen() {
             </View>
           </ScrollView>
 
-          <View style={styles.actionsBar}>
-            <View style={styles.actionsLeft}>
-              <Pressable
-                onPress={() => reco && onToggleLike(reco)}
-                hitSlop={8}
-                style={styles.actionButton}>
-                <Text style={styles.actionEmoji}>{reco.hasLiked ? '❤️' : '🤍'}</Text>
-                <Text style={styles.actionCount}>{reco.likeCount}</Text>
-              </Pressable>
-
-              <Pressable
-                onPress={() => reco && onToggleDiscovered(reco)}
-                hitSlop={8}
-                style={styles.actionButton}>
-                <Text style={styles.actionEmoji}>👀</Text>
-                <Text style={styles.actionCount}>{reco.discoveredCount}</Text>
-              </Pressable>
-
-              <Pressable onPress={handleScrollToComments} hitSlop={8} style={styles.actionButton}>
-                <Text style={styles.actionEmoji}>💬</Text>
-                <Text style={styles.actionCount}>{comments.length}</Text>
-              </Pressable>
-            </View>
-
-            {/* Bookmark : présent pour la V2, pas encore fonctionnel. */}
-            <View style={styles.bookmarkButton}>
-              <Feather name="bookmark" size={20} color={theme.colors.muted} />
-            </View>
-          </View>
-
           <View style={styles.commentInputRow}>
             <TextInput
+              ref={commentInputRef}
               value={commentText}
               onChangeText={setCommentText}
+              onContentSizeChange={(event) => {
+                const nextHeight =
+                  event.nativeEvent.contentSize.height + COMMENT_INPUT_VERTICAL_PADDING * 2;
+                setCommentInputHeight(
+                  Math.min(Math.max(nextHeight, COMMENT_INPUT_MIN_HEIGHT), COMMENT_INPUT_MAX_HEIGHT),
+                );
+              }}
               placeholder="Ajouter un commentaire..."
               placeholderTextColor={theme.colors.muted}
-              style={styles.commentInput}
+              style={[styles.commentInput, { height: commentInputHeight }]}
+              multiline
             />
             <Pressable
               onPress={handleSendComment}
@@ -529,13 +559,14 @@ const styles = StyleSheet.create({
   },
   commentInput: {
     flex: 1,
-    height: 44,
     borderRadius: theme.borderRadius.full,
     backgroundColor: theme.colors.card,
     paddingHorizontal: theme.spacing.md,
+    paddingVertical: COMMENT_INPUT_VERTICAL_PADDING,
     color: theme.colors.text,
     fontFamily: `${theme.fontBody}_400Regular`,
     fontSize: theme.fontSizes.sm,
+    lineHeight: COMMENT_INPUT_LINE_HEIGHT,
   },
   sendButton: {
     height: 44,
