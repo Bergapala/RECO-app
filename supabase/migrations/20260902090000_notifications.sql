@@ -12,10 +12,13 @@
 -- 1. Préférences de notification (nouvelles colonnes sur users)
 -- ============================================================================
 
+-- notif_day : 0 = lundi ... 6 = dimanche.
+-- notif_hour : un des créneaux 8-10, 12-14, 16-18, 20-22 (voir la
+-- contrainte plus bas).
 alter table public.users
   add column if not exists notif_enabled boolean not null default true,
-  add column if not exists notif_day smallint, -- 0 = lundi ... 6 = dimanche
-  add column if not exists notif_hour text, -- '8-10' | '12-14' | '16-18' | '20-22'
+  add column if not exists notif_day smallint,
+  add column if not exists notif_hour text,
   add column if not exists notif_reactions boolean not null default true,
   add column if not exists notif_new_recos boolean not null default true;
 
@@ -78,7 +81,7 @@ begin
 end $$;
 
 -- ============================================================================
--- 3. Trigger : "X a ❤️ ta reco" quand quelqu'un like une reco (pas la sienne)
+-- 3. Trigger : notifie l’auteur quand quelqu’un like sa reco (pas lui-même)
 -- ============================================================================
 
 create or replace function public.notify_on_like()
@@ -120,7 +123,7 @@ create trigger on_reaction_like_notify
   for each row execute function public.notify_on_like();
 
 -- ============================================================================
--- 4. Trigger : "X a posté une nouvelle reco" pour chaque ami accepté
+-- 4. Trigger : notifie chaque ami accepté quand quelqu’un poste une reco
 -- ============================================================================
 
 create or replace function public.notify_on_new_reco()
@@ -153,11 +156,11 @@ create trigger on_reco_new_notify
   for each row execute function public.notify_on_new_reco();
 
 -- ============================================================================
--- Remarque : les notifications de type "reminder" ("Ça fait une semaine que
--- tu n'as pas posté 🔴") ne sont PAS créées par cette migration. Il n'y a
--- ici aucune tâche planifiée : rien ne tourne "tout seul" dans le temps
+-- Remarque : les notifications de type reminder (rappel hebdomadaire, pas
+-- posté depuis une semaine) ne sont pas créées par cette migration. Il n’y
+-- a ici aucune tâche planifiée : rien ne tourne tout seul dans le temps
 -- côté Postgres/Supabase sans un cron. Générer ce rappel automatiquement,
--- au jour/à l'heure choisis par chaque utilisateur (notif_day/notif_hour),
--- nécessite un job planifié (pg_cron) — voir le résumé transmis par Claude
--- pour les prochaines étapes si tu veux vraiment l'automatiser.
+-- au jour et à l’heure choisis par chaque utilisateur (notif_day et
+-- notif_hour), nécessite un job planifié (pg_cron) — voir le résumé
+-- transmis par Claude pour les prochaines étapes si besoin.
 -- ============================================================================
