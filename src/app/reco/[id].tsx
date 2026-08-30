@@ -566,7 +566,7 @@ const styles = StyleSheet.create({
   },
   commentInput: {
     flex: 1,
-    borderRadius: theme.borderRadius.full,
+    borderRadius: theme.borderRadius.md,
     backgroundColor: theme.colors.card,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: COMMENT_INPUT_VERTICAL_PADDING,
