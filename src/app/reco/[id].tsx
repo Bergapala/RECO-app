@@ -323,9 +323,17 @@ export default function RecoDetailScreen() {
               placeholderTextColor={theme.colors.muted}
               style={[styles.commentInput, { height: commentInputHeight }]}
               multiline={true}
-              numberOfLines={4}
               textAlignVertical="top"
-              scrollEnabled={commentInputHeight >= COMMENT_INPUT_MAX_HEIGHT}
+              // Toujours scrollable, y compris avant d'atteindre la hauteur
+              // max : sur iOS, scrollEnabled=false empêche la UITextView de
+              // mesurer/afficher le contenu qui dépasse ses bounds actuels
+              // (elle ne peut ni scroller ni se redessiner correctement),
+              // donc le texte au-delà de la 1ère ligne restait invisible
+              // tant que onContentSizeChange n'avait pas (ou jamais) le
+              // temps de faire grandir la hauteur. Le plafond à 4 lignes
+              // vient uniquement de COMMENT_INPUT_MAX_HEIGHT ci-dessus — pas
+              // besoin de désactiver le scroll en dessous.
+              scrollEnabled
             />
             <Pressable
               onPress={handleSendComment}
