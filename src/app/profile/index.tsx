@@ -53,6 +53,13 @@ export default function ProfileScreen() {
           ListHeaderComponent={
             <View style={styles.header}>
               <Pressable
+                onPress={() => router.back()}
+                hitSlop={12}
+                style={styles.backButton}>
+                <Feather name="arrow-left" size={22} color={theme.colors.text} />
+              </Pressable>
+
+              <Pressable
                 onPress={() => router.push('/settings')}
                 hitSlop={12}
                 style={styles.settingsButton}>
@@ -118,6 +125,13 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.sm,
     paddingBottom: theme.spacing.lg,
     gap: theme.spacing.xs,
+  },
+  backButton: {
+    position: 'absolute',
+    top: theme.spacing.sm,
+    left: theme.spacing.lg,
+    padding: theme.spacing.xs,
+    zIndex: 1,
   },
   settingsButton: {
     position: 'absolute',
