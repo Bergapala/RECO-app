@@ -10,6 +10,7 @@ import { useRecoReactions } from '@/hooks/use-reco-reactions';
 import { getCurrentUserId } from '@/lib/auth';
 import { getUnreadCount, subscribeToNotifications } from '@/lib/notifications';
 import { fetchFeedRecos, type FeedReco } from '@/lib/recos';
+import { getProfileStats } from '@/lib/users';
 import { theme } from '@/theme';
 
 export default function FeedScreen() {
@@ -20,6 +21,7 @@ export default function FeedScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [friendCount, setFriendCount] = useState<number | null>(null);
 
   const { onToggleLike, onToggleDiscovered } = useRecoReactions(setRecos, currentUserId);
 
@@ -35,6 +37,7 @@ export default function FeedScreen() {
       setLoading(false);
       if (userId) {
         setUnreadCount(await getUnreadCount(userId));
+        setFriendCount((await getProfileStats(userId)).friendCount);
       }
     });
   }, [loadFeed]);
@@ -46,12 +49,14 @@ export default function FeedScreen() {
     });
   }, [currentUserId]);
 
-  // Rafraîchit le badge en revenant de l'écran Notifications (elles y sont
-  // marquées comme lues à l'ouverture).
+  // Rafraîchit le badge et le nombre d'amis en revenant sur le feed (les
+  // notifs sont marquées lues à l'ouverture de cet écran-là, et le nombre
+  // d'amis peut avoir changé après un passage par l'écran Ajout d'amis).
   useFocusEffect(
     useCallback(() => {
       if (currentUserId) {
         getUnreadCount(currentUserId).then(setUnreadCount);
+        getProfileStats(currentUserId).then((stats) => setFriendCount(stats.friendCount));
       }
     }, [currentUserId]),
   );
@@ -59,6 +64,9 @@ export default function FeedScreen() {
   async function handleRefresh() {
     setRefreshing(true);
     await loadFeed(currentUserId);
+    if (currentUserId) {
+      setFriendCount((await getProfileStats(currentUserId)).friendCount);
+    }
     setRefreshing(false);
   }
 
@@ -95,14 +103,28 @@ export default function FeedScreen() {
           )}
           ListEmptyComponent={
             !loading ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>Tes amis n&rsquo;ont pas encore posté 👀</Text>
-                <Pressable
-                  onPress={() => router.push('/add-reco')}
-                  style={({ pressed }) => [styles.emptyButton, pressed && styles.pressed]}>
-                  <Text style={styles.emptyButtonText}>Être le premier à poster</Text>
-                </Pressable>
-              </View>
+              friendCount === 0 ? (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyIcon}>👋</Text>
+                  <Text style={styles.emptyText}>
+                    Ajoute des amis pour voir leurs recos apparaître ici
+                  </Text>
+                  <Pressable
+                    onPress={() => router.push('/add-friends')}
+                    style={({ pressed }) => [styles.emptyButton, pressed && styles.pressed]}>
+                    <Text style={styles.emptyButtonText}>Ajouter des amis</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyText}>Tes amis n&rsquo;ont pas encore posté 👀</Text>
+                  <Pressable
+                    onPress={() => router.push('/add-reco')}
+                    style={({ pressed }) => [styles.emptyButton, pressed && styles.pressed]}>
+                    <Text style={styles.emptyButtonText}>Être le premier à poster</Text>
+                  </Pressable>
+                </View>
+              )
             ) : null
           }
         />
@@ -177,6 +199,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.xxl,
     gap: theme.spacing.lg,
+  },
+  emptyIcon: {
+    fontSize: 56,
+    opacity: 0.6,
   },
   emptyText: {
     color: theme.colors.muted,
