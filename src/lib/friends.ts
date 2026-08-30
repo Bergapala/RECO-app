@@ -78,6 +78,79 @@ export async function sendFriendRequest(
   return { error: null };
 }
 
+export type FriendListItem = {
+  id: string;
+  prenom: string | null;
+  photoUrl: string | null;
+  /** Date de création de la relation (ISO) — voir src/app/friends.tsx. */
+  addedAt: string;
+};
+
+/**
+ * Liste des amis acceptés de `userId`, triée du plus récent au plus
+ * ancien. La table `friends` n'a pas de relation FK unique exploitable
+ * directement par PostgREST dans les deux sens (user_id et friend_id
+ * pointent tous deux vers `users`), donc on récupère d'abord les lignes
+ * de relation puis les profils correspondants en un second appel.
+ */
+export async function getFriendsList(userId: string): Promise<FriendListItem[]> {
+  if (!isSupabaseConfigured) return [];
+
+  const { data: rows, error } = await supabase
+    .from('friends')
+    .select('user_id, friend_id, created_at')
+    .eq('status', 'accepted')
+    .or(`user_id.eq.${userId},friend_id.eq.${userId}`);
+
+  if (error || !rows || rows.length === 0) return [];
+
+  const otherIds = rows.map((row) => (row.user_id === userId ? row.friend_id : row.user_id));
+  const addedAtById = new Map(
+    rows.map((row) => [row.user_id === userId ? row.friend_id : row.user_id, row.created_at as string]),
+  );
+
+  const { data: profiles, error: profilesError } = await supabase
+    .from('users')
+    .select('id, prenom, photo_url')
+    .in('id', otherIds);
+
+  if (profilesError || !profiles) return [];
+
+  return profiles
+    .map((profile) => ({
+      id: profile.id,
+      prenom: profile.prenom,
+      photoUrl: profile.photo_url,
+      addedAt: addedAtById.get(profile.id) ?? new Date().toISOString(),
+    }))
+    .sort((a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime());
+}
+
+/**
+ * Supprime la relation d'amitié entre `currentUserId` et `friendId`, quel
+ * que soit le sens dans lequel elle a été créée. Repose sur la policy RLS
+ * "friends_delete_involved" (déjà en place), qui autorise chacune des deux
+ * personnes impliquées à supprimer la relation — aucune migration SQL
+ * n'est nécessaire pour cette fonctionnalité.
+ */
+export async function removeFriend(
+  currentUserId: string,
+  friendId: string,
+): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured) {
+    return { error: "Supabase n'est pas encore configuré." };
+  }
+
+  const { error } = await supabase
+    .from('friends')
+    .delete()
+    .or(
+      `and(user_id.eq.${currentUserId},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${currentUserId})`,
+    );
+
+  return { error: error?.message ?? null };
+}
+
 export type FriendshipStatus = 'none' | 'pending' | 'accepted';
 
 /**

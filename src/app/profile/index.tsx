@@ -76,10 +76,20 @@ export default function ProfileScreen() {
 
               <Text style={styles.name}>{profile?.prenom ?? 'Sans nom'}</Text>
 
-              <Text style={styles.stats}>
-                {stats.recoCount} reco{stats.recoCount > 1 ? 's' : ''} · {stats.friendCount} ami
-                {stats.friendCount > 1 ? 's' : ''}
-              </Text>
+              <View style={styles.statsRow}>
+                <View style={styles.statBlock}>
+                  <Text style={styles.statNumber}>{stats.recoCount}</Text>
+                  <Text style={styles.statLabel}>reco{stats.recoCount > 1 ? 's' : ''}</Text>
+                </View>
+
+                <Pressable
+                  onPress={() => router.push('/friends')}
+                  hitSlop={8}
+                  style={({ pressed }) => [styles.statBlock, pressed && styles.pressed]}>
+                  <Text style={styles.statNumber}>{stats.friendCount}</Text>
+                  <Text style={styles.statLabel}>ami{stats.friendCount > 1 ? 's' : ''}</Text>
+                </Pressable>
+              </View>
             </View>
           }
           renderItem={({ item }) => (
@@ -161,10 +171,24 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.xl,
     marginTop: theme.spacing.sm,
   },
-  stats: {
+  statsRow: {
+    flexDirection: 'row',
+    gap: theme.spacing.xl,
+    marginTop: theme.spacing.xs,
+  },
+  statBlock: {
+    alignItems: 'center',
+  },
+  statNumber: {
+    color: theme.colors.text,
+    fontFamily: `${theme.fontTitle}_700Bold`,
+    fontSize: theme.fontSizes.xxl,
+  },
+  statLabel: {
     color: theme.colors.muted,
     fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.sm,
+    fontSize: theme.fontSizes.xs,
+    marginTop: 2,
   },
   emptyState: {
     flex: 1,

@@ -3,7 +3,8 @@ import { Syne_700Bold, Syne_800ExtraBold } from '@expo-google-fonts/syne';
 import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Slot, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { StyleSheet, useColorScheme } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 
@@ -28,9 +29,20 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <Slot />
-    </ThemeProvider>
+    // Swipeable (utilisé sur l'écran Mes amis pour "swipe pour retirer")
+    // a besoin de ce wrapper racine pour fonctionner correctement,
+    // notamment sur Android.
+    <GestureHandlerRootView style={styles.flexFill}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <AnimatedSplashOverlay />
+        <Slot />
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  flexFill: {
+    flex: 1,
+  },
+});
