@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { RecoCard } from '@/components/RecoCard';
 import { useRecoReactions } from '@/hooks/use-reco-reactions';
 import { getCurrentUserId } from '@/lib/auth';
+import { getUnreadCount, subscribeToNotifications } from '@/lib/notifications';
 import { fetchFeedRecos, type FeedReco } from '@/lib/recos';
 import { theme } from '@/theme';
 
@@ -18,6 +19,7 @@ export default function FeedScreen() {
   const [recos, setRecos] = useState<FeedReco[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const { onToggleLike, onToggleDiscovered } = useRecoReactions(setRecos, currentUserId);
 
@@ -31,8 +33,28 @@ export default function FeedScreen() {
       setCurrentUserId(userId);
       await loadFeed(userId);
       setLoading(false);
+      if (userId) {
+        setUnreadCount(await getUnreadCount(userId));
+      }
     });
   }, [loadFeed]);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+    return subscribeToNotifications(currentUserId, () => {
+      setUnreadCount((count) => count + 1);
+    });
+  }, [currentUserId]);
+
+  // Rafraîchit le badge en revenant de l'écran Notifications (elles y sont
+  // marquées comme lues à l'ouverture).
+  useFocusEffect(
+    useCallback(() => {
+      if (currentUserId) {
+        getUnreadCount(currentUserId).then(setUnreadCount);
+      }
+    }, [currentUserId]),
+  );
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -46,8 +68,9 @@ export default function FeedScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.topBar}>
           <Text style={styles.logo}>RECO</Text>
-          <Pressable hitSlop={12}>
+          <Pressable onPress={() => router.push('/notifications')} hitSlop={12} style={styles.bellButton}>
             <Feather name="bell" size={22} color={theme.colors.text} />
+            {unreadCount > 0 && <View style={styles.badge} />}
           </Pressable>
         </View>
 
@@ -124,6 +147,23 @@ const styles = StyleSheet.create({
     fontFamily: `${theme.fontTitle}_800ExtraBold`,
     fontSize: theme.fontSizes.xl,
     letterSpacing: 1,
+  },
+  bellButton: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 9,
+    height: 9,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.error,
+    borderWidth: 1.5,
+    borderColor: theme.colors.background,
   },
   listContent: {
     paddingTop: theme.spacing.sm,

@@ -64,3 +64,72 @@ export async function updatePhotoUrl(
   const { error } = await supabase.from('users').update({ photo_url: photoUrl }).eq('id', userId);
   return { error: error?.message ?? null };
 }
+
+export type NotifHourSlot = '8-10' | '12-14' | '16-18' | '20-22';
+
+export type NotificationPrefs = {
+  notifEnabled: boolean;
+  notifDay: number | null; // 0 = lundi ... 6 = dimanche
+  notifHour: NotifHourSlot | null;
+  notifReactions: boolean;
+  notifNewRecos: boolean;
+};
+
+const DEFAULT_PREFS: NotificationPrefs = {
+  notifEnabled: true,
+  notifDay: null,
+  notifHour: null,
+  notifReactions: true,
+  notifNewRecos: true,
+};
+
+export async function getNotificationPrefs(userId: string): Promise<NotificationPrefs> {
+  if (!isSupabaseConfigured) return DEFAULT_PREFS;
+
+  const { data, error } = await supabase
+    .from('users')
+    .select('notif_enabled, notif_day, notif_hour, notif_reactions, notif_new_recos')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error || !data) return DEFAULT_PREFS;
+
+  return {
+    notifEnabled: data.notif_enabled ?? true,
+    notifDay: data.notif_day,
+    notifHour: data.notif_hour as NotifHourSlot | null,
+    notifReactions: data.notif_reactions ?? true,
+    notifNewRecos: data.notif_new_recos ?? true,
+  };
+}
+
+export async function updateNotificationPrefs(
+  userId: string,
+  edits: Partial<NotificationPrefs>,
+): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured) {
+    return { error: "Supabase n'est pas encore configuré." };
+  }
+
+  const payload: Record<string, unknown> = {};
+  if (edits.notifEnabled !== undefined) payload.notif_enabled = edits.notifEnabled;
+  if (edits.notifDay !== undefined) payload.notif_day = edits.notifDay;
+  if (edits.notifHour !== undefined) payload.notif_hour = edits.notifHour;
+  if (edits.notifReactions !== undefined) payload.notif_reactions = edits.notifReactions;
+  if (edits.notifNewRecos !== undefined) payload.notif_new_recos = edits.notifNewRecos;
+
+  const { error } = await supabase.from('users').update(payload).eq('id', userId);
+  return { error: error?.message ?? null };
+}
+
+export async function updatePushToken(
+  userId: string,
+  pushToken: string,
+): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured) {
+    return { error: "Supabase n'est pas encore configuré." };
+  }
+
+  const { error } = await supabase.from('users').update({ push_token: pushToken }).eq('id', userId);
+  return { error: error?.message ?? null };
+}

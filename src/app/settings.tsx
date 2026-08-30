@@ -2,14 +2,48 @@ import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
 import { getCurrentUserId, signOut } from '@/lib/auth';
+import { registerForPushNotifications } from '@/lib/push';
 import { uploadProfilePhoto } from '@/lib/storage';
-import { getUserProfile, updatePhotoUrl, updatePrenom } from '@/lib/users';
+import {
+  getNotificationPrefs,
+  getUserProfile,
+  updateNotificationPrefs,
+  updatePhotoUrl,
+  updatePrenom,
+  type NotifHourSlot,
+} from '@/lib/users';
 import { theme } from '@/theme';
+
+const DAYS: { value: number; label: string }[] = [
+  { value: 0, label: 'Lun' },
+  { value: 1, label: 'Mar' },
+  { value: 2, label: 'Mer' },
+  { value: 3, label: 'Jeu' },
+  { value: 4, label: 'Ven' },
+  { value: 5, label: 'Sam' },
+  { value: 6, label: 'Dim' },
+];
+
+const HOUR_SLOTS: { value: NotifHourSlot; label: string }[] = [
+  { value: '8-10', label: '8h-10h' },
+  { value: '12-14', label: '12h-14h' },
+  { value: '16-18', label: '16h-18h' },
+  { value: '20-22', label: '20h-22h' },
+];
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -19,15 +53,29 @@ export default function SettingsScreen() {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
+  const [notifEnabled, setNotifEnabled] = useState(true);
+  const [notifDay, setNotifDay] = useState<number | null>(null);
+  const [notifHour, setNotifHour] = useState<NotifHourSlot | null>(null);
+  const [notifReactions, setNotifReactions] = useState(true);
+  const [notifNewRecos, setNotifNewRecos] = useState(true);
+
   const hasLoadedRef = useRef(false);
 
   useEffect(() => {
     getCurrentUserId().then(async (userId) => {
       setCurrentUserId(userId);
       if (userId) {
-        const profile = await getUserProfile(userId);
+        const [profile, prefs] = await Promise.all([
+          getUserProfile(userId),
+          getNotificationPrefs(userId),
+        ]);
         setPrenom(profile?.prenom ?? '');
         setPhotoUrl(profile?.photoUrl ?? null);
+        setNotifEnabled(prefs.notifEnabled);
+        setNotifDay(prefs.notifDay);
+        setNotifHour(prefs.notifHour);
+        setNotifReactions(prefs.notifReactions);
+        setNotifNewRecos(prefs.notifNewRecos);
       }
       hasLoadedRef.current = true;
     });
@@ -71,6 +119,37 @@ export default function SettingsScreen() {
     }
   }
 
+  async function handleToggleEnabled(value: boolean) {
+    setNotifEnabled(value);
+    if (!currentUserId) return;
+    await updateNotificationPrefs(currentUserId, { notifEnabled: value });
+    if (value) {
+      // Demande la permission et enregistre le token à l'activation — voir
+      // src/lib/push.ts pour la limite (pas de projectId EAS configuré).
+      registerForPushNotifications(currentUserId);
+    }
+  }
+
+  async function handleSelectDay(day: number) {
+    setNotifDay(day);
+    if (currentUserId) await updateNotificationPrefs(currentUserId, { notifDay: day });
+  }
+
+  async function handleSelectHour(hour: NotifHourSlot) {
+    setNotifHour(hour);
+    if (currentUserId) await updateNotificationPrefs(currentUserId, { notifHour: hour });
+  }
+
+  async function handleToggleReactions(value: boolean) {
+    setNotifReactions(value);
+    if (currentUserId) await updateNotificationPrefs(currentUserId, { notifReactions: value });
+  }
+
+  async function handleToggleNewRecos(value: boolean) {
+    setNotifNewRecos(value);
+    if (currentUserId) await updateNotificationPrefs(currentUserId, { notifNewRecos: value });
+  }
+
   async function handleSignOut() {
     await signOut();
     router.replace('/login');
@@ -90,43 +169,117 @@ export default function SettingsScreen() {
           <View style={styles.backButton} />
         </View>
 
-        <View style={styles.content}>
-          <Pressable
-            onPress={handleChangePhoto}
-            disabled={uploadingPhoto}
-            style={styles.avatarWrapper}>
-            {photoUrl ? (
-              <Image source={{ uri: photoUrl }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, styles.avatarFallback]}>
-                <Text style={styles.avatarInitial}>{initial}</Text>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <View style={styles.profileSection}>
+            <Pressable
+              onPress={handleChangePhoto}
+              disabled={uploadingPhoto}
+              style={styles.avatarWrapper}>
+              {photoUrl ? (
+                <Image source={{ uri: photoUrl }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, styles.avatarFallback]}>
+                  <Text style={styles.avatarInitial}>{initial}</Text>
+                </View>
+              )}
+              <View style={styles.avatarEditBadge}>
+                <Feather name="camera" size={14} color={theme.colors.text} />
               </View>
-            )}
-            <View style={styles.avatarEditBadge}>
-              <Feather name="camera" size={14} color={theme.colors.text} />
+            </Pressable>
+            <Text style={styles.avatarHint}>
+              {uploadingPhoto ? 'Envoi en cours…' : 'Modifier la photo'}
+            </Text>
+
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Prénom</Text>
+              <TextInput
+                value={prenom}
+                onChangeText={setPrenom}
+                placeholder="Ton prénom"
+                placeholderTextColor={theme.colors.muted}
+                style={styles.fieldInput}
+              />
             </View>
-          </Pressable>
-          <Text style={styles.avatarHint}>
-            {uploadingPhoto ? 'Envoi en cours…' : 'Modifier la photo'}
-          </Text>
-
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Prénom</Text>
-            <TextInput
-              value={prenom}
-              onChangeText={setPrenom}
-              placeholder="Ton prénom"
-              placeholderTextColor={theme.colors.muted}
-              style={styles.fieldInput}
-            />
           </View>
-        </View>
 
-        <Pressable
-          onPress={handleSignOut}
-          style={({ pressed }) => [styles.signOutButton, pressed && styles.pressed]}>
-          <Text style={styles.signOutText}>Se déconnecter</Text>
-        </Pressable>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Préférences</Text>
+
+            <View style={styles.prefRow}>
+              <Text style={styles.prefLabel}>Notifications activées</Text>
+              <Switch
+                value={notifEnabled}
+                onValueChange={handleToggleEnabled}
+                trackColor={{ false: theme.colors.border, true: theme.colors.accent }}
+                thumbColor={theme.colors.text}
+              />
+            </View>
+
+            <View style={styles.prefBlock}>
+              <Text style={styles.prefLabel}>Jour du rappel hebdomadaire</Text>
+              <View style={styles.chipRow}>
+                {DAYS.map((day) => {
+                  const selected = notifDay === day.value;
+                  return (
+                    <Pressable
+                      key={day.value}
+                      onPress={() => handleSelectDay(day.value)}
+                      style={[styles.chip, selected && styles.chipSelected]}>
+                      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                        {day.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={styles.prefBlock}>
+              <Text style={styles.prefLabel}>Heure de réception</Text>
+              <View style={styles.chipRow}>
+                {HOUR_SLOTS.map((slot) => {
+                  const selected = notifHour === slot.value;
+                  return (
+                    <Pressable
+                      key={slot.value}
+                      onPress={() => handleSelectHour(slot.value)}
+                      style={[styles.chip, selected && styles.chipSelected]}>
+                      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                        {slot.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={styles.prefRow}>
+              <Text style={styles.prefLabel}>Réactions</Text>
+              <Switch
+                value={notifReactions}
+                onValueChange={handleToggleReactions}
+                trackColor={{ false: theme.colors.border, true: theme.colors.accent }}
+                thumbColor={theme.colors.text}
+              />
+            </View>
+
+            <View style={styles.prefRow}>
+              <Text style={styles.prefLabel}>Nouvelles recos</Text>
+              <Switch
+                value={notifNewRecos}
+                onValueChange={handleToggleNewRecos}
+                trackColor={{ false: theme.colors.border, true: theme.colors.accent }}
+                thumbColor={theme.colors.text}
+              />
+            </View>
+          </View>
+
+          <Pressable
+            onPress={handleSignOut}
+            style={({ pressed }) => [styles.signOutButton, pressed && styles.pressed]}>
+            <Text style={styles.signOutText}>Se déconnecter</Text>
+          </Pressable>
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
@@ -159,10 +312,13 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.md,
   },
   content: {
-    flex: 1,
-    alignItems: 'center',
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.xl,
+    paddingBottom: theme.spacing.xl,
+    gap: theme.spacing.xl,
+  },
+  profileSection: {
+    alignItems: 'center',
     gap: theme.spacing.sm,
   },
   avatarWrapper: {
@@ -201,7 +357,7 @@ const styles = StyleSheet.create({
     color: theme.colors.muted,
     fontFamily: `${theme.fontBody}_400Regular`,
     fontSize: theme.fontSizes.xs,
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.sm,
   },
   field: {
     width: '100%',
@@ -221,10 +377,54 @@ const styles = StyleSheet.create({
     fontFamily: `${theme.fontBody}_400Regular`,
     fontSize: theme.fontSizes.md,
   },
+  section: {
+    gap: theme.spacing.md,
+  },
+  sectionTitle: {
+    color: theme.colors.text,
+    fontFamily: `${theme.fontTitle}_700Bold`,
+    fontSize: theme.fontSizes.md,
+  },
+  prefRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  prefBlock: {
+    gap: theme.spacing.sm,
+  },
+  prefLabel: {
+    color: theme.colors.text,
+    fontFamily: `${theme.fontBody}_400Regular`,
+    fontSize: theme.fontSizes.sm,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.xs,
+  },
+  chip: {
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 6,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.card,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  chipSelected: {
+    backgroundColor: theme.colors.accent,
+    borderColor: theme.colors.accent,
+  },
+  chipText: {
+    color: theme.colors.text,
+    fontFamily: `${theme.fontBody}_500Medium`,
+    fontSize: theme.fontSizes.xs,
+  },
+  chipTextSelected: {
+    color: theme.colors.text,
+  },
   signOutButton: {
     height: 52,
-    marginHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
