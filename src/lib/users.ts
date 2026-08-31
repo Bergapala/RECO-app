@@ -6,6 +6,9 @@ export type UserProfile = {
   photoUrl: string | null;
   phone: string | null;
   username: string;
+  /** Nombre de semaines consécutives avec au moins une reco postée — voir
+   * le trigger update_streak_on_new_reco (migration streak_and_saved_recos). */
+  streakCount: number;
 };
 
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
@@ -13,7 +16,7 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
 
   const { data, error } = await supabase
     .from('users')
-    .select('id, prenom, photo_url, phone, username')
+    .select('id, prenom, photo_url, phone, username, streak_count')
     .eq('id', userId)
     .maybeSingle();
 
@@ -25,6 +28,7 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
     photoUrl: data.photo_url,
     phone: data.phone,
     username: data.username,
+    streakCount: data.streak_count ?? 0,
   };
 }
 

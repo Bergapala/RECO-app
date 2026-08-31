@@ -45,6 +45,7 @@ export type FeedReco = {
   commentCount: number;
   hasLiked: boolean;
   hasDiscovered: boolean;
+  isSaved: boolean;
 };
 
 type RecoRow = {
@@ -59,6 +60,11 @@ type RecoRow = {
   users: { id: string; prenom: string | null; photo_url: string | null } | null;
   reactions: { type: 'like' | 'discovered'; user_id: string }[] | null;
   comments: { count: number }[] | null;
+  // Grâce à la policy RLS "saved_recos_select_own" (strictement privée),
+  // ce tableau ne contient jamais que la ligne du viewer lui-même le cas
+  // échéant — pas besoin de filtrer par viewerId côté client comme pour
+  // reactions/comments.
+  saved_recos: { id: string }[] | null;
 };
 
 /**
@@ -108,7 +114,7 @@ export async function fetchFeedRecos(currentUserId: string | null): Promise<Feed
 }
 
 const RECO_SELECT =
-  'id, titre, url, commentaire, apercu_image, categorie, created_at, user_id, users(id, prenom, photo_url), reactions(type, user_id), comments(count)';
+  'id, titre, url, commentaire, apercu_image, categorie, created_at, user_id, users(id, prenom, photo_url), reactions(type, user_id), comments(count), saved_recos(id)';
 
 function mapRecoRows(rows: RecoRow[], viewerId: string | null): FeedReco[] {
   return rows.map((row) => {
@@ -131,6 +137,7 @@ function mapRecoRows(rows: RecoRow[], viewerId: string | null): FeedReco[] {
       commentCount: row.comments?.[0]?.count ?? 0,
       hasLiked: reactions.some((r) => r.type === 'like' && r.user_id === viewerId),
       hasDiscovered: reactions.some((r) => r.type === 'discovered' && r.user_id === viewerId),
+      isSaved: (row.saved_recos?.length ?? 0) > 0,
     };
   });
 }
@@ -159,6 +166,30 @@ export async function fetchRecosByAuthor(
   }
 
   return mapRecoRows(data as unknown as RecoRow[], viewerId);
+}
+
+/**
+ * Recos précises par id, dans le même ordre que `recoIds` (utilisé par
+ * src/lib/saved.ts pour l'écran "Mes enregistrements", où l'ordre voulu
+ * est celui de l'enregistrement, pas l'ordre renvoyé par `.in()`).
+ */
+export async function fetchRecosByIds(
+  recoIds: string[],
+  viewerId: string | null,
+): Promise<FeedReco[]> {
+  if (!isSupabaseConfigured || recoIds.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase.from('recos').select(RECO_SELECT).in('id', recoIds);
+
+  if (error || !data) {
+    return [];
+  }
+
+  const mapped = mapRecoRows(data as unknown as RecoRow[], viewerId);
+  const order = new Map(recoIds.map((id, index) => [id, index]));
+  return mapped.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
 }
 
 /** Une reco précise (écran détail — src/app/reco/[id].tsx). */

@@ -1,4 +1,4 @@
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
 import { useRecoReactions } from '@/hooks/use-reco-reactions';
+import { useSavedRecos } from '@/hooks/use-saved-recos';
 import { getCurrentUserId } from '@/lib/auth';
 import { fetchComments, postComment, subscribeToComments, type RecoComment } from '@/lib/comments';
 import { getFriendsList, type FriendListItem } from '@/lib/friends';
@@ -94,6 +95,7 @@ export default function RecoDetailScreen() {
   const commentInputRef = useRef<TextInput>(null);
 
   const { onToggleLike, onToggleDiscovered } = useRecoReactions(setRecos, currentUserId);
+  const { onToggleSave } = useSavedRecos(setRecos, currentUserId);
   const reco = recos[0] ?? null;
 
   useEffect(() => {
@@ -392,10 +394,16 @@ export default function RecoDetailScreen() {
                       </Pressable>
                     </View>
 
-                    {/* Bookmark : présent pour la V2, pas encore fonctionnel. */}
-                    <View style={styles.bookmarkButton}>
-                      <Feather name="bookmark" size={20} color={theme.colors.muted} />
-                    </View>
+                    <Pressable
+                      onPress={() => reco && onToggleSave(reco)}
+                      hitSlop={8}
+                      style={styles.bookmarkButton}>
+                      <MaterialIcons
+                        name={reco.isSaved ? 'bookmark' : 'bookmark-border'}
+                        size={20}
+                        color={reco.isSaved ? theme.colors.accent : theme.colors.muted}
+                      />
+                    </Pressable>
                   </View>
 
                   <View style={styles.separator} />

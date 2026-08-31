@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { BottomTabBar, FLOATING_NAV_CLEARANCE } from '@/components/BottomTabBar';
 import { RecoCard } from '@/components/RecoCard';
 import { useRecoReactions } from '@/hooks/use-reco-reactions';
+import { useSavedRecos } from '@/hooks/use-saved-recos';
 import { getCurrentUserId } from '@/lib/auth';
 import { shareInvite } from '@/lib/invite';
 import { getUnreadCount, subscribeToNotifications } from '@/lib/notifications';
@@ -26,6 +27,7 @@ export default function FeedScreen() {
   const [friendCount, setFriendCount] = useState<number | null>(null);
 
   const { onToggleLike, onToggleDiscovered } = useRecoReactions(setRecos, currentUserId);
+  const { onToggleSave } = useSavedRecos(setRecos, currentUserId);
 
   const loadFeed = useCallback(async (userId: string | null) => {
     const feed = await fetchFeedRecos(userId);
@@ -100,6 +102,7 @@ export default function FeedScreen() {
               reco={item}
               onToggleLike={onToggleLike}
               onToggleDiscovered={onToggleDiscovered}
+              onToggleSave={onToggleSave}
               currentUserId={currentUserId}
             />
           )}

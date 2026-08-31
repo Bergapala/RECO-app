@@ -1,6 +1,14 @@
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
-export type NotificationType = 'like' | 'new_reco' | 'reminder' | 'friend_accepted';
+export type NotificationType =
+  | 'like'
+  | 'new_reco'
+  | 'reminder'
+  | 'friend_accepted'
+  // Préparation V2 (pas encore envoyée par aucun job) : voir la migration
+  // streak_and_saved_recos — nécessite pg_cron pour être déclenchée
+  // automatiquement le dimanche soir, absent de ce projet pour l'instant.
+  | 'streak_warning';
 
 export type AppNotification = {
   id: string;
@@ -36,6 +44,8 @@ function buildMessage(row: NotificationRow): string {
       return `${actorName} a posté une nouvelle reco`;
     case 'friend_accepted':
       return `${actorName} a accepté ta demande`;
+    case 'streak_warning':
+      return "C'est ton dernier jour pour poster avant de perdre ton streak 🔥";
     case 'reminder':
     default:
       return "Ça fait une semaine que tu n'as pas posté 🔴";

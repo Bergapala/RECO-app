@@ -1,4 +1,4 @@
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -28,6 +28,7 @@ type RecoCardProps = {
   reco: FeedReco;
   onToggleLike: (reco: FeedReco) => void;
   onToggleDiscovered: (reco: FeedReco) => void;
+  onToggleSave: (reco: FeedReco) => void;
   /** Pour rediriger vers "mon profil" plutôt que /profile/[id] quand on
    * clique sur son propre nom (ex. dans la liste de son propre profil). */
   currentUserId?: string | null;
@@ -37,6 +38,7 @@ export function RecoCard({
   reco,
   onToggleLike,
   onToggleDiscovered,
+  onToggleSave,
   currentUserId,
 }: RecoCardProps) {
   const router = useRouter();
@@ -119,10 +121,13 @@ export function RecoCard({
           </Pressable>
         </View>
 
-        {/* Bookmark : présent pour la V2, pas encore fonctionnel. */}
-        <View style={styles.bookmarkButton}>
-          <Feather name="bookmark" size={20} color={theme.colors.muted} />
-        </View>
+        <Pressable onPress={() => onToggleSave(reco)} hitSlop={8} style={styles.bookmarkButton}>
+          <MaterialIcons
+            name={reco.isSaved ? 'bookmark' : 'bookmark-border'}
+            size={20}
+            color={reco.isSaved ? theme.colors.accent : theme.colors.muted}
+          />
+        </Pressable>
       </View>
     </Pressable>
   );
