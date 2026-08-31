@@ -25,6 +25,10 @@ import { createReco, getRecoById, updateReco } from '@/lib/recos';
 import { uploadRecoImage } from '@/lib/storage';
 import { theme } from '@/theme';
 
+// Liste fixe et fermée — voir la contrainte CHECK "recos_categorie_check"
+// (migration lock_recos_categories) qui verrouille les mêmes 9 valeurs
+// côté base. Ne jamais permettre à l'utilisateur d'en taper une autre :
+// toute nouvelle catégorie doit être ajoutée ICI ET dans cette contrainte.
 const CATEGORIES = [
   { emoji: '🎬', label: 'Film/Série' },
   { emoji: '📺', label: 'YouTube' },
@@ -32,7 +36,6 @@ const CATEGORIES = [
   { emoji: '🎶', label: 'Musique' },
   { emoji: '📃', label: 'Article' },
   { emoji: '📚', label: 'Livre' },
-  { emoji: '🍽️', label: 'Resto' },
   { emoji: '🎮', label: 'Jeu vidéo' },
   { emoji: '📱', label: 'App' },
   { emoji: '🌍', label: 'Autre' },
