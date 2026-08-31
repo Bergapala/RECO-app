@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
 import { getCurrentUserId, signOut } from '@/lib/auth';
+import { goBack } from '@/lib/navigation';
 import { registerForPushNotifications } from '@/lib/push';
 import { uploadProfilePhoto } from '@/lib/storage';
 import {
@@ -162,7 +163,7 @@ export default function SettingsScreen() {
       <StatusBar style="light" />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backButton}>
+          <Pressable onPress={() => goBack(router)} hitSlop={12} style={styles.backButton}>
             <Feather name="arrow-left" size={22} color={theme.colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Paramètres</Text>

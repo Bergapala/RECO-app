@@ -23,6 +23,7 @@ import { useRecoReactions } from '@/hooks/use-reco-reactions';
 import { getCurrentUserId } from '@/lib/auth';
 import { fetchComments, postComment, subscribeToComments, type RecoComment } from '@/lib/comments';
 import { getFriendsList, type FriendListItem } from '@/lib/friends';
+import { goBack } from '@/lib/navigation';
 import { deleteReco, getRecoById, type FeedReco } from '@/lib/recos';
 import { theme } from '@/theme';
 
@@ -222,19 +223,6 @@ export default function RecoDetailScreen() {
     router.push({ pathname: '/add-reco', params: { id } });
   }
 
-  /** Comme router.back() partout ailleurs dans l'app, mais avec un repli
-   * vers le feed si cet écran a été atteint sans historique de navigation
-   * (lien profond, notification, ou rechargement de l'app en dev) — sans
-   * ça, router.back() ne fait alors silencieusement rien et la flèche
-   * retour semble cassée. */
-  function handleBack() {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/feed');
-    }
-  }
-
   function handleFocusCommentInput() {
     // Le scroll est géré par le listener keyboardWillShow/keyboardDidShow
     // ci-dessus dès que ce focus() ouvre effectivement le clavier — pas
@@ -294,7 +282,7 @@ export default function RecoDetailScreen() {
       <StatusBar style="light" />
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.header}>
-          <Pressable onPress={handleBack} hitSlop={12} style={styles.headerButton}>
+          <Pressable onPress={() => goBack(router)} hitSlop={12} style={styles.headerButton}>
             <Feather name="arrow-left" size={22} color={theme.colors.text} />
           </Pressable>
 

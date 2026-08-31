@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
 import { getCurrentUserId } from '@/lib/auth';
+import { goBack } from '@/lib/navigation';
 import { fetchOpenGraphMetadata, isValidHttpUrl } from '@/lib/opengraph';
 import { createReco, getRecoById, updateReco } from '@/lib/recos';
 import { uploadRecoImage } from '@/lib/storage';
@@ -92,7 +93,7 @@ export default function AddRecoScreen() {
         : 'Ta reco ne sera pas publiée.',
       [
         { text: 'Continuer', style: 'cancel' },
-        { text: 'Quitter', style: 'destructive', onPress: () => router.back() },
+        { text: 'Quitter', style: 'destructive', onPress: () => goBack(router) },
       ],
     );
   }

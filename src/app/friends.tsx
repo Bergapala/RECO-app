@@ -18,6 +18,7 @@ import { StatusBar } from 'expo-status-bar';
 import { FriendSearchPanel } from '@/components/FriendSearchPanel';
 import { getCurrentUserId } from '@/lib/auth';
 import { getFriendsList, removeFriend, type FriendListItem } from '@/lib/friends';
+import { goBack } from '@/lib/navigation';
 import { theme } from '@/theme';
 
 function formatAddedAt(iso: string): string {
@@ -77,7 +78,7 @@ export default function FriendsScreen() {
       <StatusBar style="light" />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.headerButton}>
+          <Pressable onPress={() => goBack(router)} hitSlop={12} style={styles.headerButton}>
             <Feather name="arrow-left" size={22} color={theme.colors.text} />
           </Pressable>
 

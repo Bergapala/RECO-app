@@ -12,6 +12,7 @@ import {
   getPendingFriendRequests,
   type PendingFriendRequest,
 } from '@/lib/friends';
+import { goBack } from '@/lib/navigation';
 import {
   fetchNotifications,
   markAllAsRead,
@@ -102,7 +103,7 @@ export default function NotificationsScreen() {
       <StatusBar style="light" />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backButton}>
+          <Pressable onPress={() => goBack(router)} hitSlop={12} style={styles.backButton}>
             <Feather name="arrow-left" size={22} color={theme.colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Notifications</Text>

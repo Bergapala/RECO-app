@@ -9,6 +9,7 @@ import { RecoCard } from '@/components/RecoCard';
 import { useRecoReactions } from '@/hooks/use-reco-reactions';
 import { getCurrentUserId } from '@/lib/auth';
 import { getFriendshipStatus, sendFriendRequest, type FriendshipStatus } from '@/lib/friends';
+import { goBack } from '@/lib/navigation';
 import { fetchRecosByAuthor, type FeedReco } from '@/lib/recos';
 import { getUserProfile, type UserProfile } from '@/lib/users';
 import { theme } from '@/theme';
@@ -71,7 +72,7 @@ export default function FriendProfileScreen() {
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={
             <View style={styles.header}>
-              <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backButton}>
+              <Pressable onPress={() => goBack(router)} hitSlop={12} style={styles.backButton}>
                 <Feather name="arrow-left" size={22} color={theme.colors.text} />
               </Pressable>
 
