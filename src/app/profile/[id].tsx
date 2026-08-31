@@ -84,6 +84,7 @@ export default function FriendProfileScreen() {
               )}
 
               <Text style={styles.name}>{profile?.prenom ?? 'Sans nom'}</Text>
+              {profile?.username && <Text style={styles.username}>@{profile.username}</Text>}
 
               {friendshipStatus === 'accepted' && (
                 <View style={[styles.friendButton, styles.friendButtonDisabled]}>
@@ -173,6 +174,11 @@ const styles = StyleSheet.create({
     fontFamily: `${theme.fontTitle}_700Bold`,
     fontSize: theme.fontSizes.xl,
     marginTop: theme.spacing.sm,
+  },
+  username: {
+    color: theme.colors.muted,
+    fontFamily: `${theme.fontBody}_400Regular`,
+    fontSize: theme.fontSizes.sm,
   },
   friendButton: {
     marginTop: theme.spacing.sm,

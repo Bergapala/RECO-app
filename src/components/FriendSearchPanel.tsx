@@ -114,7 +114,7 @@ export function FriendSearchPanel({ currentUserId, autoSync }: FriendSearchPanel
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Rechercher un ami..."
+          placeholder="Prénom ou @pseudo..."
           placeholderTextColor={theme.colors.muted}
           style={styles.searchInput}
           autoCapitalize="none"

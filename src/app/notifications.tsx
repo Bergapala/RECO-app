@@ -7,6 +7,12 @@ import { StatusBar } from 'expo-status-bar';
 
 import { getCurrentUserId } from '@/lib/auth';
 import {
+  acceptFriendRequest,
+  declineFriendRequest,
+  getPendingFriendRequests,
+  type PendingFriendRequest,
+} from '@/lib/friends';
+import {
   fetchNotifications,
   markAllAsRead,
   type AppNotification,
@@ -35,6 +41,8 @@ export default function NotificationsScreen() {
   const router = useRouter();
 
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<PendingFriendRequest[]>([]);
+  const [respondingId, setRespondingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -44,8 +52,12 @@ export default function NotificationsScreen() {
         return;
       }
 
-      const list = await fetchNotifications(userId);
+      const [list, requests] = await Promise.all([
+        fetchNotifications(userId),
+        getPendingFriendRequests(userId),
+      ]);
       setNotifications(list);
+      setPendingRequests(requests);
       setLoading(false);
 
       // Marquées comme lues automatiquement à l'ouverture — en arrière-plan,
@@ -53,6 +65,26 @@ export default function NotificationsScreen() {
       markAllAsRead(userId);
     });
   }, []);
+
+  async function handleAcceptRequest(request: PendingFriendRequest) {
+    if (respondingId) return;
+    setRespondingId(request.id);
+    const { error } = await acceptFriendRequest(request.id);
+    setRespondingId(null);
+    if (!error) {
+      setPendingRequests((current) => current.filter((item) => item.id !== request.id));
+    }
+  }
+
+  async function handleDeclineRequest(request: PendingFriendRequest) {
+    if (respondingId) return;
+    setRespondingId(request.id);
+    const { error } = await declineFriendRequest(request.id);
+    setRespondingId(null);
+    if (!error) {
+      setPendingRequests((current) => current.filter((item) => item.id !== request.id));
+    }
+  }
 
   function handlePress(notification: AppNotification) {
     if (notification.type === 'reminder') {
@@ -81,6 +113,60 @@ export default function NotificationsScreen() {
           data={notifications}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
+          ListHeaderComponent={
+            pendingRequests.length > 0 ? (
+              <View style={styles.requestsSection}>
+                <Text style={styles.requestsTitle}>Demandes d&rsquo;amis</Text>
+
+                {pendingRequests.map((request) => (
+                  <View key={request.id} style={styles.requestRow}>
+                    {request.sender.photoUrl ? (
+                      <Image source={{ uri: request.sender.photoUrl }} style={styles.avatar} />
+                    ) : (
+                      <View style={[styles.avatar, styles.avatarFallback]}>
+                        <Text style={styles.avatarInitial}>
+                          {(request.sender.prenom ?? '?').trim().charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+
+                    <View style={styles.requestBody}>
+                      <Text style={styles.requestText}>
+                        <Text style={styles.requestName}>
+                          {request.sender.prenom ?? 'Sans nom'}
+                        </Text>{' '}
+                        veut t&rsquo;ajouter en ami
+                      </Text>
+
+                      <View style={styles.requestActions}>
+                        <Pressable
+                          onPress={() => handleAcceptRequest(request)}
+                          disabled={respondingId === request.id}
+                          style={[
+                            styles.acceptButton,
+                            respondingId === request.id && styles.pressed,
+                          ]}>
+                          <Text style={styles.acceptButtonText}>Accepter</Text>
+                        </Pressable>
+
+                        <Pressable
+                          onPress={() => handleDeclineRequest(request)}
+                          disabled={respondingId === request.id}
+                          style={[
+                            styles.declineButton,
+                            respondingId === request.id && styles.pressed,
+                          ]}>
+                          <Text style={styles.declineButtonText}>Refuser</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+
+                <View style={styles.requestsSeparator} />
+              </View>
+            ) : null
+          }
           renderItem={({ item }) => (
             <Pressable
               onPress={() => handlePress(item)}
@@ -146,6 +232,74 @@ const styles = StyleSheet.create({
   listContent: {
     flexGrow: 1,
     paddingBottom: theme.spacing.xl,
+  },
+  requestsSection: {
+    paddingTop: theme.spacing.sm,
+    gap: theme.spacing.sm,
+  },
+  requestsTitle: {
+    color: theme.colors.text,
+    fontFamily: `${theme.fontTitle}_700Bold`,
+    fontSize: theme.fontSizes.md,
+    paddingHorizontal: theme.spacing.lg,
+  },
+  requestRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.sm,
+  },
+  requestBody: {
+    flex: 1,
+    gap: theme.spacing.sm,
+  },
+  requestText: {
+    color: theme.colors.text,
+    fontFamily: `${theme.fontBody}_400Regular`,
+    fontSize: theme.fontSizes.sm,
+  },
+  requestName: {
+    fontFamily: `${theme.fontBody}_600SemiBold`,
+  },
+  requestActions: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  acceptButton: {
+    height: 36,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  acceptButtonText: {
+    color: theme.colors.text,
+    fontFamily: `${theme.fontBody}_600SemiBold`,
+    fontSize: theme.fontSizes.sm,
+  },
+  declineButton: {
+    height: 36,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1.5,
+    borderColor: theme.colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  declineButtonText: {
+    color: theme.colors.error,
+    fontFamily: `${theme.fontBody}_600SemiBold`,
+    fontSize: theme.fontSizes.sm,
+  },
+  requestsSeparator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: theme.colors.border,
+    marginTop: theme.spacing.sm,
+  },
+  pressed: {
+    opacity: 0.7,
   },
   row: {
     flexDirection: 'row',

@@ -33,7 +33,7 @@ export default function AddFriendsScreen() {
           </Pressable>
 
           <Text style={styles.title}>Ajoute tes amis</Text>
-          <Text style={styles.subtitle}>Trouve tes amis par nom ou numéro de téléphone</Text>
+          <Text style={styles.subtitle}>Trouve tes amis par prénom ou @nom d&rsquo;utilisateur</Text>
         </View>
 
         <View style={styles.panelWrapper}>

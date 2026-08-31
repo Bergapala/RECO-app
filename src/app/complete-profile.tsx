@@ -3,6 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -17,14 +18,26 @@ import { StatusBar } from 'expo-status-bar';
 
 import { getCurrentUserId } from '@/lib/auth';
 import { uploadProfilePhoto } from '@/lib/storage';
-import { getUserProfile, updatePhone, updatePhotoUrl, updatePrenom } from '@/lib/users';
+import {
+  getUserProfile,
+  isUsernameAvailable,
+  isValidUsernameFormat,
+  updatePhone,
+  updatePhotoUrl,
+  updatePrenom,
+  updateUsername,
+} from '@/lib/users';
 import { theme } from '@/theme';
+
+type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid';
 
 export default function CompleteProfileScreen() {
   const router = useRouter();
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [prenom, setPrenom] = useState('');
+  const [username, setUsername] = useState('');
+  const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>('idle');
   const [phone, setPhone] = useState('');
   const [hasExistingPhone, setHasExistingPhone] = useState(false);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -39,9 +52,39 @@ export default function CompleteProfileScreen() {
         setPrenom(profile?.prenom ?? '');
         setPhotoUrl(profile?.photoUrl ?? null);
         setHasExistingPhone(Boolean(profile?.phone));
+        // Le username n'est volontairement pas pré-rempli : celui déjà en
+        // base à ce stade n'est qu'un placeholder généré à l'inscription
+        // (voir la migration username_and_friend_requests), pas un vrai
+        // choix de l'utilisateur.
       }
     });
   }, []);
+
+  // Vérification de disponibilité en temps réel, avec un léger debounce
+  // pour ne pas interroger la base à chaque frappe.
+  useEffect(() => {
+    if (username.length === 0) {
+      setUsernameStatus('idle');
+      return;
+    }
+
+    if (!isValidUsernameFormat(username)) {
+      setUsernameStatus('invalid');
+      return;
+    }
+
+    setUsernameStatus('checking');
+    let cancelled = false;
+    const timeout = setTimeout(async () => {
+      const available = await isUsernameAvailable(username, currentUserId);
+      if (!cancelled) setUsernameStatus(available ? 'available' : 'taken');
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [username, currentUserId]);
 
   async function handlePickPhoto() {
     if (!currentUserId) return;
@@ -66,10 +109,13 @@ export default function CompleteProfileScreen() {
   }
 
   async function handleContinue() {
-    if (!currentUserId || prenom.trim().length === 0 || saving) return;
+    if (!currentUserId || !isValid || saving) return;
 
     setSaving(true);
-    await updatePrenom(currentUserId, prenom.trim());
+    await Promise.all([
+      updatePrenom(currentUserId, prenom.trim()),
+      updateUsername(currentUserId, username),
+    ]);
     if (photoUrl) await updatePhotoUrl(currentUserId, photoUrl);
     if (!hasExistingPhone && phone.trim().length > 0) {
       await updatePhone(currentUserId, phone.trim());
@@ -80,7 +126,7 @@ export default function CompleteProfileScreen() {
   }
 
   const initial = prenom.trim().charAt(0).toUpperCase() || '?';
-  const isValid = prenom.trim().length > 0;
+  const isValid = prenom.trim().length > 0 && usernameStatus === 'available';
 
   return (
     <View style={styles.container}>
@@ -121,6 +167,40 @@ export default function CompleteProfileScreen() {
                 placeholderTextColor={theme.colors.muted}
                 style={styles.input}
               />
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>Nom d&rsquo;utilisateur</Text>
+              <View style={styles.usernameInputRow}>
+                <Text style={styles.usernamePrefix}>@</Text>
+                <TextInput
+                  value={username}
+                  onChangeText={(value) => setUsername(value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                  placeholder="tonpseudo"
+                  placeholderTextColor={theme.colors.muted}
+                  style={styles.usernameInput}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  maxLength={20}
+                />
+                {usernameStatus === 'checking' && (
+                  <ActivityIndicator size="small" color={theme.colors.muted} />
+                )}
+                {usernameStatus === 'available' && (
+                  <Feather name="check" size={20} color={theme.colors.success} />
+                )}
+                {(usernameStatus === 'taken' || usernameStatus === 'invalid') && (
+                  <Feather name="x" size={20} color={theme.colors.error} />
+                )}
+              </View>
+              {usernameStatus === 'taken' && (
+                <Text style={styles.usernameHintError}>Ce nom d&rsquo;utilisateur est déjà pris.</Text>
+              )}
+              {usernameStatus === 'invalid' && username.length > 0 && (
+                <Text style={styles.usernameHintError}>
+                  3 à 20 caractères : lettres minuscules, chiffres, underscore.
+                </Text>
+              )}
             </View>
 
             {!hasExistingPhone && (
@@ -244,6 +324,31 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontFamily: `${theme.fontBody}_400Regular`,
     fontSize: theme.fontSizes.md,
+  },
+  usernameInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    height: 52,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.card,
+    paddingHorizontal: theme.spacing.md,
+  },
+  usernamePrefix: {
+    color: theme.colors.muted,
+    fontFamily: `${theme.fontBody}_500Medium`,
+    fontSize: theme.fontSizes.md,
+  },
+  usernameInput: {
+    flex: 1,
+    color: theme.colors.text,
+    fontFamily: `${theme.fontBody}_400Regular`,
+    fontSize: theme.fontSizes.md,
+  },
+  usernameHintError: {
+    color: theme.colors.error,
+    fontFamily: `${theme.fontBody}_400Regular`,
+    fontSize: theme.fontSizes.xs,
   },
   primaryButton: {
     width: '100%',

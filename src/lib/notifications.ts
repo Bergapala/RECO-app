@@ -1,6 +1,6 @@
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
-export type NotificationType = 'like' | 'new_reco' | 'reminder';
+export type NotificationType = 'like' | 'new_reco' | 'reminder' | 'friend_accepted';
 
 export type AppNotification = {
   id: string;
@@ -34,6 +34,8 @@ function buildMessage(row: NotificationRow): string {
       return `${actorName} a ❤️ ta reco ${row.recos?.titre ?? ''}`.trim();
     case 'new_reco':
       return `${actorName} a posté une nouvelle reco`;
+    case 'friend_accepted':
+      return `${actorName} a accepté ta demande`;
     case 'reminder':
     default:
       return "Ça fait une semaine que tu n'as pas posté 🔴";
@@ -74,16 +76,26 @@ export async function fetchNotifications(userId: string): Promise<AppNotificatio
   return (data as unknown as NotificationRow[]).map(mapRow);
 }
 
+/** Notifications non lues + demandes d'amis en attente — le badge rouge de
+ * la cloche compte les deux (voir la section "Demandes d'amis" en haut de
+ * src/app/notifications.tsx). */
 export async function getUnreadCount(userId: string): Promise<number> {
   if (!isSupabaseConfigured) return 0;
 
-  const { count } = await supabase
-    .from('notifications')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('read', false);
+  const [{ count: unreadNotifs }, { count: pendingRequests }] = await Promise.all([
+    supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('read', false),
+    supabase
+      .from('friends')
+      .select('id', { count: 'exact', head: true })
+      .eq('friend_id', userId)
+      .eq('status', 'pending'),
+  ]);
 
-  return count ?? 0;
+  return (unreadNotifs ?? 0) + (pendingRequests ?? 0);
 }
 
 export async function markAllAsRead(userId: string): Promise<void> {

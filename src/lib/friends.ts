@@ -4,15 +4,19 @@ export type UserSearchResult = {
   id: string;
   prenom: string | null;
   photoUrl: string | null;
+  username: string;
 };
 
 /**
- * Cherche des utilisateurs par prénom (recherche insensible à la casse,
- * sous-chaîne). Exclut l'utilisateur `currentUserId` des résultats.
+ * Cherche des utilisateurs par prénom OU par username (recherche
+ * insensible à la casse, sous-chaîne). Un "@" en tête de la requête (ex.
+ * "@antoine") est retiré avant de matcher le username, pour permettre de
+ * chercher directement quelqu'un qui n'a pas synchronisé son téléphone.
+ * Exclut l'utilisateur `currentUserId` des résultats.
  *
  * Remarque : la table `users` n'a pas de colonne numéro de téléphone —
- * seule la recherche par nom est donc réellement branchée, même si le
- * sous-titre de l'écran mentionne aussi le téléphone.
+ * seules les recherches par nom et par username sont donc réellement
+ * branchées, même si le sous-titre de l'écran mentionne aussi le téléphone.
  *
  * Nécessite que la policy RLS de `public.users` autorise un utilisateur
  * authentifié à lire les profils des autres (voir la migration
@@ -27,10 +31,12 @@ export async function searchUsersByName(
     return [];
   }
 
+  const usernameQuery = trimmed.startsWith('@') ? trimmed.slice(1) : trimmed;
+
   let request = supabase
     .from('users')
-    .select('id, prenom, photo_url')
-    .ilike('prenom', `%${trimmed}%`)
+    .select('id, prenom, photo_url, username')
+    .or(`prenom.ilike."%${trimmed}%",username.ilike."%${usernameQuery}%"`)
     .limit(20);
 
   if (currentUserId) {
@@ -46,6 +52,7 @@ export async function searchUsersByName(
     id: row.id,
     prenom: row.prenom,
     photoUrl: row.photo_url,
+    username: row.username,
   }));
 }
 
@@ -173,4 +180,79 @@ export async function getFriendshipStatus(
     .maybeSingle();
 
   return (data?.status as FriendshipStatus | undefined) ?? 'none';
+}
+
+export type PendingFriendRequest = {
+  /** Id de la ligne `friends` — nécessaire pour accepter/refuser. */
+  id: string;
+  createdAt: string;
+  sender: {
+    id: string;
+    prenom: string | null;
+    photoUrl: string | null;
+  };
+};
+
+type PendingFriendRequestRow = {
+  id: string;
+  created_at: string;
+  sender: { id: string; prenom: string | null; photo_url: string | null } | null;
+};
+
+/**
+ * Demandes d'amis reçues par `userId` et pas encore traitées — affichées
+ * en haut de l'écran notifications (voir src/app/notifications.tsx).
+ * `!user_id` désambiguïse la jointure vers users, comme pour `actor_id`
+ * dans lib/notifications.ts : `friends` a deux FK vers `users`.
+ */
+export async function getPendingFriendRequests(userId: string): Promise<PendingFriendRequest[]> {
+  if (!isSupabaseConfigured) return [];
+
+  const { data, error } = await supabase
+    .from('friends')
+    .select('id, created_at, sender:users!user_id(id, prenom, photo_url)')
+    .eq('friend_id', userId)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false });
+
+  if (error || !data) return [];
+
+  return (data as unknown as PendingFriendRequestRow[])
+    .filter((row) => row.sender !== null)
+    .map((row) => ({
+      id: row.id,
+      createdAt: row.created_at,
+      sender: {
+        id: row.sender!.id,
+        prenom: row.sender!.prenom,
+        photoUrl: row.sender!.photo_url,
+      },
+    }));
+}
+
+/** Accepte une demande d'ami — le trigger `notify_on_friend_accepted`
+ * (voir la migration username_and_friend_requests) se charge de notifier
+ * l'expéditeur, pas besoin de le faire depuis le client. */
+export async function acceptFriendRequest(requestId: string): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured) {
+    return { error: "Supabase n'est pas encore configuré." };
+  }
+
+  const { error } = await supabase
+    .from('friends')
+    .update({ status: 'accepted' })
+    .eq('id', requestId);
+
+  return { error: error?.message ?? null };
+}
+
+/** Refuse une demande d'ami — supprime simplement la ligne, l'expéditeur
+ * pourra retenter plus tard. */
+export async function declineFriendRequest(requestId: string): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured) {
+    return { error: "Supabase n'est pas encore configuré." };
+  }
+
+  const { error } = await supabase.from('friends').delete().eq('id', requestId);
+  return { error: error?.message ?? null };
 }

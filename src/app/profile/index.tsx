@@ -76,6 +76,7 @@ export default function ProfileScreen() {
               )}
 
               <Text style={styles.name}>{profile?.prenom ?? 'Sans nom'}</Text>
+              {profile?.username && <Text style={styles.username}>@{profile.username}</Text>}
 
               <View style={styles.statsRow}>
                 <View style={styles.statBlock}>
@@ -173,6 +174,11 @@ const styles = StyleSheet.create({
     fontFamily: `${theme.fontTitle}_700Bold`,
     fontSize: theme.fontSizes.xl,
     marginTop: theme.spacing.sm,
+  },
+  username: {
+    color: theme.colors.muted,
+    fontFamily: `${theme.fontBody}_400Regular`,
+    fontSize: theme.fontSizes.sm,
   },
   statsRow: {
     flexDirection: 'row',

@@ -5,6 +5,7 @@ export type UserProfile = {
   prenom: string | null;
   photoUrl: string | null;
   phone: string | null;
+  username: string;
 };
 
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
@@ -12,13 +13,19 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
 
   const { data, error } = await supabase
     .from('users')
-    .select('id, prenom, photo_url, phone')
+    .select('id, prenom, photo_url, phone, username')
     .eq('id', userId)
     .maybeSingle();
 
   if (error || !data) return null;
 
-  return { id: data.id, prenom: data.prenom, photoUrl: data.photo_url, phone: data.phone };
+  return {
+    id: data.id,
+    prenom: data.prenom,
+    photoUrl: data.photo_url,
+    phone: data.phone,
+    username: data.username,
+  };
 }
 
 export type ProfileStats = {
@@ -60,6 +67,52 @@ export async function updatePhone(userId: string, phone: string): Promise<{ erro
   }
 
   const { error } = await supabase.from('users').update({ phone }).eq('id', userId);
+  return { error: error?.message ?? null };
+}
+
+/** Lettres minuscules, chiffres, underscore, 3 à 20 caractères — reflète
+ * exactement la contrainte `users_username_format_check` côté base. */
+export function isValidUsernameFormat(username: string): boolean {
+  return /^[a-z0-9_]{3,20}$/.test(username);
+}
+
+/** Vérifie la disponibilité d'un username (insensible à la casse), en
+ * excluant la ligne de l'utilisateur courant (pour qu'il puisse "garder"
+ * son propre username sans qu'il se signale comme déjà pris). Renvoie
+ * `false` si le format est invalide, sans même interroger la base. */
+export async function isUsernameAvailable(
+  username: string,
+  currentUserId: string | null,
+): Promise<boolean> {
+  if (!isValidUsernameFormat(username)) return false;
+  if (!isSupabaseConfigured) return true;
+
+  let request = supabase.from('users').select('id').ilike('username', username);
+  if (currentUserId) {
+    request = request.neq('id', currentUserId);
+  }
+
+  const { data, error } = await request;
+  if (error) return false;
+
+  return (data?.length ?? 0) === 0;
+}
+
+export async function updateUsername(
+  userId: string,
+  username: string,
+): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured) {
+    return { error: "Supabase n'est pas encore configuré." };
+  }
+
+  const { error } = await supabase.from('users').update({ username }).eq('id', userId);
+  if (error?.code === '23505') {
+    // Contrainte unique violée (quelqu'un a pris ce username entre la
+    // dernière vérification et cet enregistrement) — message clair plutôt
+    // que l'erreur Postgres brute.
+    return { error: 'Ce nom d’utilisateur vient d’être pris, choisis-en un autre.' };
+  }
   return { error: error?.message ?? null };
 }
 

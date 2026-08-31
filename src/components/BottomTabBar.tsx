@@ -186,11 +186,6 @@ const styles = StyleSheet.create({
     backgroundColor: theme.withOpacity(theme.colors.accent, 0.9),
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: theme.colors.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
-    elevation: 10,
   },
   avatar: {
     width: 28,
