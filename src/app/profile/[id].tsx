@@ -10,6 +10,11 @@ import { RecoCard } from '@/components/RecoCard';
 import { useRecoReactions } from '@/hooks/use-reco-reactions';
 import { useSavedRecos } from '@/hooks/use-saved-recos';
 import { getCurrentUserId } from '@/lib/auth';
+import {
+  getCompatibilityScore,
+  getCompatibilitySubtitle,
+  type CompatibilityScore,
+} from '@/lib/compatibility';
 import { getFriendshipStatus, sendFriendRequest, type FriendshipStatus } from '@/lib/friends';
 import { goBack } from '@/lib/navigation';
 import { fetchRecosByAuthor, type FeedReco } from '@/lib/recos';
@@ -31,6 +36,7 @@ export default function FriendProfileScreen() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [friendshipStatus, setFriendshipStatus] = useState<FriendshipStatus>('none');
+  const [compatibility, setCompatibility] = useState<CompatibilityScore | null>(null);
   const [sendingRequest, setSendingRequest] = useState(false);
   const [recos, setRecos] = useState<FeedReco[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,7 +58,12 @@ export default function FriendProfileScreen() {
       setRecos(theirRecos);
 
       if (userId) {
-        setFriendshipStatus(await getFriendshipStatus(userId, id));
+        const [status, compat] = await Promise.all([
+          getFriendshipStatus(userId, id),
+          getCompatibilityScore(userId, id),
+        ]);
+        setFriendshipStatus(status);
+        setCompatibility(compat);
       }
 
       setLoading(false);
@@ -136,6 +147,21 @@ export default function FriendProfileScreen() {
                     style={[styles.friendButton, sendingRequest && styles.pressed]}>
                     <Text style={styles.friendButtonText}>Ajouter en ami</Text>
                   </Pressable>
+                )}
+
+                {!loading && compatibility && (
+                  <View style={styles.compatCard}>
+                    <Text style={styles.compatTitle}>Compatibilité</Text>
+                    <Text style={styles.compatScore}>{compatibility.score}%</Text>
+                    <Text style={styles.compatSubtitle}>
+                      {getCompatibilitySubtitle(compatibility)}
+                    </Text>
+                    <Text style={styles.compatDetail}>
+                      {compatibility.commonCount} reco
+                      {compatibility.commonCount > 1 ? 's' : ''} en commun sur{' '}
+                      {compatibility.totalCount}
+                    </Text>
+                  </View>
                 )}
               </View>
             </>
@@ -251,6 +277,36 @@ const styles = StyleSheet.create({
   friendButtonTextDisabled: {
     color: theme.colors.muted,
     fontFamily: `${theme.fontBody}_600SemiBold`,
+    fontSize: theme.fontSizes.sm,
+  },
+  compatCard: {
+    width: '100%',
+    marginTop: theme.spacing.md,
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+  },
+  compatTitle: {
+    color: theme.colors.muted,
+    fontFamily: `${theme.fontTitle}_700Bold`,
+    fontSize: theme.fontSizes.sm,
+  },
+  compatScore: {
+    color: theme.colors.accent,
+    fontFamily: `${theme.fontTitle}_800ExtraBold`,
+    fontSize: theme.fontSizes.xxl,
+  },
+  compatSubtitle: {
+    color: theme.colors.text,
+    fontFamily: `${theme.fontBody}_500Medium`,
+    fontSize: theme.fontSizes.sm,
+    textAlign: 'center',
+  },
+  compatDetail: {
+    color: theme.colors.muted,
+    fontFamily: `${theme.fontBody}_400Regular`,
     fontSize: theme.fontSizes.sm,
   },
   emptyState: {
