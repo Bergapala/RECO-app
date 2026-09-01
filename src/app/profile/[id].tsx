@@ -151,8 +151,10 @@ export default function FriendProfileScreen() {
 
                 {!loading && compatibility && (
                   <View style={styles.compatCard}>
-                    <Text style={styles.compatTitle}>Compatibilité</Text>
-                    <Text style={styles.compatScore}>{compatibility.score}%</Text>
+                    <View style={styles.compatHeaderRow}>
+                      <Text style={styles.compatTitle}>Compatibilité</Text>
+                      <Text style={styles.compatScore}>{compatibility.score}%</Text>
+                    </View>
                     <Text style={styles.compatSubtitle}>
                       {getCompatibilitySubtitle(compatibility)}
                     </Text>
@@ -284,30 +286,33 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.md,
     backgroundColor: theme.colors.card,
     borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
+    padding: theme.spacing.sm,
+    gap: 2,
+  },
+  compatHeaderRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.xs,
+    justifyContent: 'space-between',
   },
   compatTitle: {
     color: theme.colors.muted,
-    fontFamily: `${theme.fontTitle}_700Bold`,
+    fontFamily: `${theme.fontBody}_400Regular`,
     fontSize: theme.fontSizes.sm,
   },
   compatScore: {
     color: theme.colors.accent,
-    fontFamily: `${theme.fontTitle}_800ExtraBold`,
-    fontSize: theme.fontSizes.xxl,
+    fontFamily: `${theme.fontTitle}_700Bold`,
+    fontSize: theme.fontSizes.sm,
   },
   compatSubtitle: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_500Medium`,
-    fontSize: theme.fontSizes.sm,
-    textAlign: 'center',
+    color: theme.colors.muted,
+    fontFamily: `${theme.fontBody}_400Regular`,
+    fontSize: theme.fontSizes.xs,
   },
   compatDetail: {
     color: theme.colors.muted,
     fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.sm,
+    fontSize: theme.fontSizes.xs,
   },
   emptyState: {
     flex: 1,
