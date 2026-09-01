@@ -1,14 +1,21 @@
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useColorScheme,
+  useWindowDimensions,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
 import { theme } from '@/theme';
 
 type Slide = {
-  icon: string;
   title: string;
   description: string;
   buttonLabel: string;
@@ -16,22 +23,21 @@ type Slide = {
 
 const slides: Slide[] = [
   {
-    icon: '🗣️',
-    title: 'Partage tes découvertes',
+    title: 'Partage tes meilleures découvertes',
     description:
-      'Un endroit où partager tes meilleures trouvailles avec tes potes — films, podcasts, restos, vidéos…',
+      'Un endroit unique où tu partages tes films, podcasts, vidéos et livres préférés avec tes potes — sans algo, juste du bouche à oreille.',
     buttonLabel: 'Suivant',
   },
   {
-    icon: '🔗',
-    title: 'Ajoute une reco en 2 minutes',
-    description: 'Colle un lien, écris un commentaire, choisis une catégorie. C’est tout.',
+    title: 'Réagis et échange avec tes potes',
+    description:
+      'Like ❤️ les recos qui t’intéressent, marque 👀 ce que tu as découvert grâce à eux et commente directement sous leurs publications.',
     buttonLabel: 'Suivant',
   },
   {
-    icon: '👀',
-    title: 'Découvre ce que tes potes aiment',
-    description: 'Scroll le feed, réagis aux recos, et laisse-toi surprendre.',
+    title: 'Publie en 2 minutes chrono',
+    description:
+      'Colle un lien depuis n’importe quelle app, ajoute un commentaire et choisis une catégorie. Ta reco apparaît instantanément dans le feed de tes amis.',
     buttonLabel: 'Commencer',
   },
 ];
@@ -43,6 +49,19 @@ export default function OnboardingScreen() {
   const { width } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+
+  // Seul cet écran suit le mode sombre/clair du téléphone — le reste de
+  // l'app reste volontairement toujours sombre (voir src/theme/index.ts),
+  // ce changement est scopé à l'onboarding uniquement, comme demandé.
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme !== 'light';
+  const colors = {
+    background: isDark ? '#1A1A1A' : '#FFFFFF',
+    text: isDark ? '#F5F2EE' : '#1A1A1A',
+    muted: theme.colors.muted,
+    card: isDark ? theme.colors.card : '#EDEDED',
+    dotInactive: isDark ? theme.colors.border : '#DDDDDD',
+  };
 
   function goToCompleteProfile() {
     router.replace('/complete-profile');
@@ -64,8 +83,8 @@ export default function OnboardingScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="light" />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.topBar}>
           <View style={styles.sideSlot} />
@@ -74,7 +93,11 @@ export default function OnboardingScreen() {
             {slides.map((slide, index) => (
               <View
                 key={slide.title}
-                style={[styles.dot, index === activeIndex && styles.dotActive]}
+                style={[
+                  styles.dot,
+                  { backgroundColor: colors.dotInactive },
+                  index === activeIndex && styles.dotActive,
+                ]}
               />
             ))}
           </View>
@@ -82,7 +105,7 @@ export default function OnboardingScreen() {
           <View style={[styles.sideSlot, styles.sideSlotEnd]}>
             {activeIndex < lastSlideIndex && (
               <Pressable onPress={goToCompleteProfile} hitSlop={12}>
-                <Text style={styles.skipText}>Passer</Text>
+                <Text style={[styles.skipText, { color: colors.muted }]}>Passer</Text>
               </Pressable>
             )}
           </View>
@@ -99,9 +122,16 @@ export default function OnboardingScreen() {
           {slides.map((slide) => (
             <View key={slide.title} style={[styles.slide, { width }]}>
               <View style={styles.slideBody}>
-                <Text style={styles.icon}>{slide.icon}</Text>
-                <Text style={styles.title}>{slide.title}</Text>
-                <Text style={styles.description}>{slide.description}</Text>
+                <View style={[styles.imagePlaceholder, { backgroundColor: colors.card }]}>
+                  <Text style={[styles.placeholderText, { color: colors.muted }]}>
+                    📸 Capture d’écran à venir
+                  </Text>
+                </View>
+
+                <Text style={[styles.title, { color: colors.text }]}>{slide.title}</Text>
+                <Text style={[styles.description, { color: colors.muted }]}>
+                  {slide.description}
+                </Text>
               </View>
 
               <Pressable
@@ -120,7 +150,6 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
   },
   safeArea: {
     flex: 1,
@@ -148,13 +177,11 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: theme.borderRadius.full,
-    backgroundColor: theme.colors.border,
   },
   dotActive: {
     backgroundColor: theme.colors.accent,
   },
   skipText: {
-    color: theme.colors.muted,
     fontFamily: `${theme.fontBody}_500Medium`,
     fontSize: theme.fontSizes.sm,
   },
@@ -172,30 +199,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: theme.spacing.md,
   },
-  icon: {
-    fontSize: 96,
+  imagePlaceholder: {
+    width: '85%',
+    height: 380,
+    borderRadius: theme.borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: theme.spacing.sm,
   },
+  placeholderText: {
+    fontFamily: `${theme.fontBody}_500Medium`,
+    fontSize: theme.fontSizes.md,
+    textAlign: 'center',
+  },
   title: {
-    color: theme.colors.text,
     fontFamily: `${theme.fontTitle}_700Bold`,
     fontSize: theme.fontSizes.xl,
     textAlign: 'center',
   },
   description: {
-    color: theme.colors.muted,
     fontFamily: `${theme.fontBody}_400Regular`,
     fontSize: theme.fontSizes.md,
     textAlign: 'center',
     lineHeight: theme.fontSizes.md * 1.4,
-    maxWidth: 320,
+    paddingHorizontal: theme.spacing.lg,
+    maxWidth: 360,
   },
   button: {
-    height: 52,
-    borderRadius: theme.borderRadius.md,
+    borderRadius: theme.borderRadius.full,
     backgroundColor: theme.colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: theme.spacing.md,
   },
   buttonPressed: {
     opacity: 0.85,
