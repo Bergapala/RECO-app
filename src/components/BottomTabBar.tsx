@@ -1,14 +1,14 @@
 import { Feather } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useTheme } from '@/context/ThemeContext';
 import { getCurrentUserId } from '@/lib/auth';
 import { getUnreadCount, subscribeToNotifications } from '@/lib/notifications';
 import { getUserProfile } from '@/lib/users';
-import { theme } from '@/theme';
 
 type BottomTabBarProps = {
   active: 'feed' | 'profile';
@@ -27,6 +27,7 @@ export const FLOATING_NAV_CLEARANCE = 100;
  * d'être collé en bas de l'écran.
  */
 export function BottomTabBar({ active }: BottomTabBarProps) {
+  const theme = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -76,6 +77,104 @@ export function BottomTabBar({ active }: BottomTabBarProps) {
     }, [currentUserId]),
   );
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        floatingWrapper: {
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          alignItems: 'center',
+        },
+        shadowWrapper: {
+          width: '85%',
+          borderRadius: 50,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 12,
+          elevation: 8,
+        },
+        pill: {
+          borderRadius: 50,
+          overflow: 'hidden',
+        },
+        tint: {
+          // Cette pilule flottante garde volontairement un fond sombre fixe
+          // (verre teinté) quel que soit le mode clair/sombre de l'app —
+          // c'est pourquoi son contenu (icônes, initiale) ci-dessous reste
+          // en couleurs claires fixes plutôt que theme.colors.text.
+          backgroundColor: 'rgba(28, 28, 28, 0.85)',
+        },
+        content: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          // Seuls Accueil et Profil restent dans cette rangée — le bouton +
+          // flotte au-dessus (voir plusWrapper), donc space-between les écarte
+          // vers les bords plutôt que de laisser un vide au milieu.
+          justifyContent: 'space-between',
+          paddingHorizontal: theme.spacing.xl,
+          paddingVertical: theme.spacing.sm,
+        },
+        button: {
+          paddingHorizontal: theme.spacing.md,
+          paddingVertical: theme.spacing.xs,
+          borderRadius: 20,
+        },
+        buttonActive: {
+          backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        },
+        plusWrapper: {
+          position: 'absolute',
+          // Remonte le cercle (60px) pour qu'il dépasse d'environ 18px au-dessus
+          // du bandeau tout en chevauchant le reste de sa hauteur.
+          top: -18,
+          left: 0,
+          right: 0,
+          alignItems: 'center',
+        },
+        plusButton: {
+          width: 60,
+          height: 60,
+          borderRadius: 30,
+          backgroundColor: theme.withOpacity(theme.colors.accent, 0.9),
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        avatar: {
+          width: 28,
+          height: 28,
+          borderRadius: theme.borderRadius.full,
+        },
+        avatarFallback: {
+          backgroundColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        avatarInitial: {
+          // Blanc fixe : le fond du cercle reste l'accent rouge quel que
+          // soit le mode clair/sombre.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.xs,
+        },
+        badge: {
+          position: 'absolute',
+          top: -1,
+          right: -1,
+          width: 9,
+          height: 9,
+          borderRadius: theme.borderRadius.full,
+          backgroundColor: theme.colors.error,
+          borderWidth: 1.5,
+          // Fixe, pas theme.colors.background : le badge se découpe sur la
+          // pilule flottante (toujours sombre), pas sur le fond de l'écran.
+          borderColor: '#1C1C1C',
+        },
+      }),
+    [theme],
+  );
+
   return (
     <View style={[styles.floatingWrapper, { bottom: insets.bottom + theme.spacing.sm }]} pointerEvents="box-none">
       <View style={styles.shadowWrapper}>
@@ -88,7 +187,8 @@ export function BottomTabBar({ active }: BottomTabBarProps) {
               onPress={active === 'feed' ? undefined : () => router.push('/feed')}
               hitSlop={8}
               style={[styles.button, active === 'feed' && styles.buttonActive]}>
-              <Feather name="home" size={22} color={theme.colors.text} />
+              {/* Blanc fixe : icône posée sur la pilule toujours sombre. */}
+              <Feather name="home" size={22} color="#F5F2EE" />
             </Pressable>
 
             <Pressable
@@ -120,7 +220,8 @@ export function BottomTabBar({ active }: BottomTabBarProps) {
             onPressOut={handlePlusPressOut}
             hitSlop={4}>
             <Animated.View style={[styles.plusButton, { transform: [{ scale: plusScale }] }]}>
-              <Feather name="plus" size={theme.fontSizes.xxl} color={theme.colors.text} />
+              {/* Blanc fixe : le fond du bouton reste l'accent rouge. */}
+              <Feather name="plus" size={theme.fontSizes.xxl} color="#FFFFFF" />
             </Animated.View>
           </Pressable>
         </View>
@@ -128,89 +229,3 @@ export function BottomTabBar({ active }: BottomTabBarProps) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  floatingWrapper: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  shadowWrapper: {
-    width: '85%',
-    borderRadius: 50,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  pill: {
-    borderRadius: 50,
-    overflow: 'hidden',
-  },
-  tint: {
-    backgroundColor: 'rgba(28, 28, 28, 0.85)',
-  },
-  content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    // Seuls Accueil et Profil restent dans cette rangée — le bouton +
-    // flotte au-dessus (voir plusWrapper), donc space-between les écarte
-    // vers les bords plutôt que de laisser un vide au milieu.
-    justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.xl,
-    paddingVertical: theme.spacing.sm,
-  },
-  button: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: 20,
-  },
-  buttonActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-  },
-  plusWrapper: {
-    position: 'absolute',
-    // Remonte le cercle (60px) pour qu'il dépasse d'environ 18px au-dessus
-    // du bandeau tout en chevauchant le reste de sa hauteur.
-    top: -18,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  plusButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: theme.withOpacity(theme.colors.accent, 0.9),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatar: {
-    width: 28,
-    height: 28,
-    borderRadius: theme.borderRadius.full,
-  },
-  avatarFallback: {
-    backgroundColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarInitial: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.xs,
-  },
-  badge: {
-    position: 'absolute',
-    top: -1,
-    right: -1,
-    width: 9,
-    height: 9,
-    borderRadius: theme.borderRadius.full,
-    backgroundColor: theme.colors.error,
-    borderWidth: 1.5,
-    borderColor: theme.colors.background,
-  },
-});

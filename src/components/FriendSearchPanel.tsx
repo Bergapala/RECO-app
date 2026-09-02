@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -10,10 +10,10 @@ import {
   View,
 } from 'react-native';
 
+import { useTheme } from '@/context/ThemeContext';
 import { findContactsOnReco, type ContactMatch } from '@/lib/contacts';
 import { searchUsersByName, sendFriendRequest, type UserSearchResult } from '@/lib/friends';
 import { shareInvite } from '@/lib/invite';
-import { theme } from '@/theme';
 
 type RequestStatus = 'idle' | 'sending' | 'sent';
 type ContactsSyncState = 'idle' | 'syncing' | 'denied' | 'done';
@@ -33,6 +33,7 @@ type FriendSearchPanelProps = {
  * pas dupliquer cette logique aux deux endroits.
  */
 export function FriendSearchPanel({ currentUserId, autoSync }: FriendSearchPanelProps) {
+  const theme = useTheme();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UserSearchResult[]>([]);
   const [searched, setSearched] = useState(false);
@@ -106,6 +107,146 @@ export function FriendSearchPanel({ currentUserId, autoSync }: FriendSearchPanel
   } else if (!isSearching && contactsSyncState === 'done' && contactMatches.length === 0) {
     emptyMessage = 'Aucun de tes contacts n’est encore sur RECO';
   }
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          gap: theme.spacing.sm,
+        },
+        searchBar: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: theme.spacing.sm,
+          height: 48,
+          borderRadius: theme.borderRadius.md,
+          backgroundColor: theme.colors.card,
+          borderWidth: 1,
+          borderColor: theme.colors.border,
+          paddingHorizontal: theme.spacing.md,
+        },
+        searchInput: {
+          flex: 1,
+          color: theme.colors.text,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.md,
+        },
+        syncButton: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: theme.spacing.xs,
+          height: 44,
+          borderRadius: theme.borderRadius.md,
+          borderWidth: 1,
+          borderColor: theme.colors.border,
+        },
+        syncButtonText: {
+          color: theme.colors.accent,
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.sm,
+        },
+        syncDeniedText: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.xs,
+          textAlign: 'center',
+        },
+        list: {
+          flex: 1,
+        },
+        listContent: {
+          flexGrow: 1,
+        },
+        emptyText: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.sm,
+          textAlign: 'center',
+          marginTop: theme.spacing.xl,
+        },
+        resultRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: theme.spacing.sm,
+          paddingVertical: theme.spacing.sm,
+        },
+        avatar: {
+          width: 44,
+          height: 44,
+          borderRadius: theme.borderRadius.full,
+          backgroundColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        avatarInitial: {
+          // Blanc fixe : le fond du cercle reste l'accent rouge quel que
+          // soit le mode clair/sombre.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.md,
+        },
+        resultName: {
+          flex: 1,
+          color: theme.colors.text,
+          fontFamily: `${theme.fontBody}_500Medium`,
+          fontSize: theme.fontSizes.md,
+        },
+        addButton: {
+          height: 36,
+          paddingHorizontal: theme.spacing.md,
+          borderRadius: theme.borderRadius.md,
+          borderWidth: 1.5,
+          borderColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        addButtonSent: {
+          borderColor: theme.colors.border,
+        },
+        addButtonText: {
+          color: theme.colors.accent,
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.sm,
+        },
+        addButtonTextSent: {
+          color: theme.colors.muted,
+        },
+        separatorRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: theme.spacing.sm,
+        },
+        separatorLine: {
+          flex: 1,
+          height: StyleSheet.hairlineWidth,
+          backgroundColor: theme.colors.border,
+        },
+        separatorText: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.xs,
+        },
+        inviteButton: {
+          height: 52,
+          borderRadius: theme.borderRadius.md,
+          borderWidth: 1.5,
+          borderColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        inviteButtonText: {
+          color: theme.colors.accent,
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.md,
+        },
+        pressed: {
+          opacity: 0.85,
+        },
+      }),
+    [theme],
+  );
 
   return (
     <View style={styles.container}>
@@ -193,137 +334,3 @@ export function FriendSearchPanel({ currentUserId, autoSync }: FriendSearchPanel
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    gap: theme.spacing.sm,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    height: 48,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    paddingHorizontal: theme.spacing.md,
-  },
-  searchInput: {
-    flex: 1,
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.md,
-  },
-  syncButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing.xs,
-    height: 44,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  syncButtonText: {
-    color: theme.colors.accent,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.sm,
-  },
-  syncDeniedText: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.xs,
-    textAlign: 'center',
-  },
-  list: {
-    flex: 1,
-  },
-  listContent: {
-    flexGrow: 1,
-  },
-  emptyText: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.sm,
-    textAlign: 'center',
-    marginTop: theme.spacing.xl,
-  },
-  resultRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    paddingVertical: theme.spacing.sm,
-  },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: theme.borderRadius.full,
-    backgroundColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarInitial: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.md,
-  },
-  resultName: {
-    flex: 1,
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_500Medium`,
-    fontSize: theme.fontSizes.md,
-  },
-  addButton: {
-    height: 36,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1.5,
-    borderColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addButtonSent: {
-    borderColor: theme.colors.border,
-  },
-  addButtonText: {
-    color: theme.colors.accent,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.sm,
-  },
-  addButtonTextSent: {
-    color: theme.colors.muted,
-  },
-  separatorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-  },
-  separatorLine: {
-    flex: 1,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: theme.colors.border,
-  },
-  separatorText: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.xs,
-  },
-  inviteButton: {
-    height: 52,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1.5,
-    borderColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  inviteButtonText: {
-    color: theme.colors.accent,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.md,
-  },
-  pressed: {
-    opacity: 0.85,
-  },
-});

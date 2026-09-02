@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,12 +18,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
+import { useTheme, type ThemeContextValue } from '@/context/ThemeContext';
 import { getCurrentUserId } from '@/lib/auth';
 import { goBack } from '@/lib/navigation';
 import { fetchOpenGraphMetadata, isValidHttpUrl } from '@/lib/opengraph';
 import { createReco, getRecoById, updateReco } from '@/lib/recos';
 import { uploadRecoImage } from '@/lib/storage';
-import { theme } from '@/theme';
 
 // Liste fixe et fermée — voir la contrainte CHECK "recos_categorie_check"
 // (migration lock_recos_categories) qui verrouille les mêmes 9 valeurs
@@ -43,7 +43,199 @@ const CATEGORIES = [
 
 type Step = 1 | 2 | 3 | 'confirmation';
 
+// Construite à partir du thème actif et mémoïsée dans AddRecoScreen, puis
+// transmise en prop aux 4 composants de cet écran (StepUrl, StepComment,
+// StepCategory, PrimaryButton) — évite de dupliquer un useTheme()+useMemo
+// dans chacun d'eux tout en gardant les styles réactifs au changement de
+// thème.
+function createStyles(theme: ThemeContextValue) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    safeArea: {
+      flex: 1,
+    },
+    flexFill: {
+      flex: 1,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
+    },
+    backButton: {
+      width: 32,
+      height: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerTitle: {
+      color: theme.colors.text,
+      fontFamily: `${theme.fontTitle}_700Bold`,
+      fontSize: theme.fontSizes.md,
+    },
+    content: {
+      padding: theme.spacing.lg,
+      gap: theme.spacing.lg,
+    },
+    stepGap: {
+      gap: theme.spacing.md,
+    },
+    urlInput: {
+      height: 56,
+      borderRadius: theme.borderRadius.md,
+      backgroundColor: theme.colors.card,
+      paddingHorizontal: theme.spacing.md,
+      color: theme.colors.text,
+      fontFamily: `${theme.fontBody}_400Regular`,
+      fontSize: theme.fontSizes.md,
+    },
+    errorText: {
+      color: theme.colors.error,
+      fontFamily: `${theme.fontBody}_400Regular`,
+      fontSize: theme.fontSizes.sm,
+    },
+    manualForm: {
+      gap: theme.spacing.md,
+    },
+    uploadButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: theme.spacing.sm,
+      height: 48,
+      borderRadius: theme.borderRadius.md,
+      borderWidth: 1.5,
+      borderColor: theme.colors.accent,
+    },
+    uploadButtonText: {
+      color: theme.colors.accent,
+      fontFamily: `${theme.fontBody}_600SemiBold`,
+      fontSize: theme.fontSizes.sm,
+    },
+    pickedImage: {
+      width: '100%',
+      height: 160,
+      borderRadius: theme.borderRadius.md,
+    },
+    previewCard: {
+      backgroundColor: theme.colors.card,
+      borderRadius: theme.borderRadius.md,
+      overflow: 'hidden',
+    },
+    previewCardImage: {
+      width: '100%',
+      height: 160,
+    },
+    previewCardImagePlaceholder: {
+      backgroundColor: theme.colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    previewCardTitle: {
+      color: theme.colors.text,
+      fontFamily: `${theme.fontTitle}_700Bold`,
+      fontSize: theme.fontSizes.md,
+      padding: theme.spacing.md,
+    },
+    commentInput: {
+      minHeight: 96,
+      borderRadius: theme.borderRadius.md,
+      backgroundColor: theme.colors.card,
+      padding: theme.spacing.md,
+      color: theme.colors.text,
+      fontFamily: `${theme.fontBody}_400Regular`,
+      fontSize: theme.fontSizes.md,
+    },
+    charCount: {
+      color: theme.colors.muted,
+      fontFamily: `${theme.fontBody}_400Regular`,
+      fontSize: theme.fontSizes.xs,
+      textAlign: 'right',
+      marginTop: theme.spacing.xs,
+    },
+    categoryTitle: {
+      color: theme.colors.text,
+      fontFamily: `${theme.fontTitle}_700Bold`,
+      fontSize: theme.fontSizes.lg,
+    },
+    categoryGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: theme.spacing.sm,
+    },
+    categoryTag: {
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
+      borderRadius: theme.borderRadius.full,
+      backgroundColor: theme.colors.card,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    categoryTagSelected: {
+      backgroundColor: theme.colors.accent,
+      borderColor: theme.colors.accent,
+    },
+    categoryTagText: {
+      color: theme.colors.text,
+      fontFamily: `${theme.fontBody}_500Medium`,
+      fontSize: theme.fontSizes.sm,
+    },
+    categoryTagTextSelected: {
+      // Blanc fixe, pas theme.colors.text : le fond de la puce
+      // sélectionnée reste l'accent rouge quel que soit le mode.
+      color: '#FFFFFF',
+    },
+    primaryButton: {
+      height: 52,
+      borderRadius: theme.borderRadius.md,
+      backgroundColor: theme.colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    primaryButtonDisabled: {
+      backgroundColor: theme.colors.muted,
+    },
+    primaryButtonText: {
+      // Blanc fixe, pas theme.colors.text : le fond du bouton reste
+      // l'accent rouge quel que soit le mode clair/sombre.
+      color: '#FFFFFF',
+      fontFamily: `${theme.fontBody}_600SemiBold`,
+      fontSize: theme.fontSizes.md,
+    },
+    primaryButtonTextDisabled: {
+      color: theme.colors.background,
+    },
+    pressed: {
+      opacity: 0.85,
+    },
+    confirmationSafeArea: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: theme.spacing.sm,
+    },
+    confirmationTitle: {
+      color: theme.colors.accent,
+      fontFamily: `${theme.fontTitle}_700Bold`,
+      fontSize: theme.fontSizes.xl,
+    },
+    confirmationSubtitle: {
+      color: theme.colors.muted,
+      fontFamily: `${theme.fontBody}_400Regular`,
+      fontSize: theme.fontSizes.md,
+    },
+  });
+}
+
+type Styles = ReturnType<typeof createStyles>;
+
 export default function AddRecoScreen() {
+  const theme = useTheme();
   const router = useRouter();
   const { id: editingId } = useLocalSearchParams<{ id?: string }>();
   const isEditing = Boolean(editingId);
@@ -67,6 +259,8 @@ export default function AddRecoScreen() {
   // Étape 3
   const [categorie, setCategorie] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   useEffect(() => {
     getCurrentUserId().then(async (userId) => {
@@ -184,10 +378,12 @@ export default function AddRecoScreen() {
     });
   }
 
+  const statusBarStyle = theme.mode === 'dark' ? 'light' : 'dark';
+
   if (step === 'confirmation') {
     return (
       <View style={styles.container}>
-        <StatusBar style="light" />
+        <StatusBar style={statusBarStyle} />
         <SafeAreaView style={styles.confirmationSafeArea}>
           <Text style={styles.confirmationTitle}>Reco publiée 🔴</Text>
           <Text style={styles.confirmationSubtitle}>Tes potes vont adorer</Text>
@@ -199,7 +395,7 @@ export default function AddRecoScreen() {
   if (loadingExisting) {
     return (
       <View style={styles.container}>
-        <StatusBar style="light" />
+        <StatusBar style={statusBarStyle} />
         <SafeAreaView style={styles.confirmationSafeArea}>
           <ActivityIndicator color={theme.colors.accent} />
         </SafeAreaView>
@@ -209,7 +405,7 @@ export default function AddRecoScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
+      <StatusBar style={statusBarStyle} />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <Pressable onPress={confirmLeave} hitSlop={12} style={styles.backButton}>
@@ -227,6 +423,8 @@ export default function AddRecoScreen() {
             keyboardShouldPersistTaps="handled">
             {step === 1 && (
               <StepUrl
+                styles={styles}
+                theme={theme}
                 url={url}
                 onChangeUrl={(value) => {
                   setUrl(value);
@@ -246,6 +444,8 @@ export default function AddRecoScreen() {
 
             {step === 2 && (
               <StepComment
+                styles={styles}
+                theme={theme}
                 previewTitle={previewTitle}
                 previewImage={previewImage ?? pickedImageUri}
                 commentaire={commentaire}
@@ -256,6 +456,7 @@ export default function AddRecoScreen() {
 
             {step === 3 && (
               <StepCategory
+                styles={styles}
                 categorie={categorie}
                 onSelectCategorie={setCategorie}
                 onPublish={handlePublish}
@@ -271,6 +472,8 @@ export default function AddRecoScreen() {
 }
 
 type StepUrlProps = {
+  styles: Styles;
+  theme: ThemeContextValue;
   url: string;
   onChangeUrl: (value: string) => void;
   urlError: string | null;
@@ -285,6 +488,8 @@ type StepUrlProps = {
 };
 
 function StepUrl({
+  styles,
+  theme,
   url,
   onChangeUrl,
   urlError,
@@ -317,7 +522,7 @@ function StepUrl({
       {urlError && <Text style={styles.errorText}>{urlError}</Text>}
 
       {!manualMode && (
-        <PrimaryButton label="Valider le lien" onPress={onValidateLink} loading={checking} />
+        <PrimaryButton styles={styles} label="Valider le lien" onPress={onValidateLink} loading={checking} />
       )}
 
       {manualMode && (
@@ -342,6 +547,7 @@ function StepUrl({
           {pickedImageUri && <Image source={{ uri: pickedImageUri }} style={styles.pickedImage} />}
 
           <PrimaryButton
+            styles={styles}
             label="Continuer"
             onPress={onContinueManual}
             disabled={!canContinueManual}
@@ -354,6 +560,8 @@ function StepUrl({
 }
 
 type StepCommentProps = {
+  styles: Styles;
+  theme: ThemeContextValue;
   previewTitle: string;
   previewImage: string | null;
   commentaire: string;
@@ -362,6 +570,8 @@ type StepCommentProps = {
 };
 
 function StepComment({
+  styles,
+  theme,
   previewTitle,
   previewImage,
   commentaire,
@@ -398,12 +608,13 @@ function StepComment({
         <Text style={styles.charCount}>{commentaire.length}</Text>
       </View>
 
-      <PrimaryButton label="Suivant" onPress={onNext} disabled={!isFilled} />
+      <PrimaryButton styles={styles} label="Suivant" onPress={onNext} disabled={!isFilled} />
     </View>
   );
 }
 
 type StepCategoryProps = {
+  styles: Styles;
   categorie: string | null;
   onSelectCategorie: (value: string) => void;
   onPublish: () => void;
@@ -412,6 +623,7 @@ type StepCategoryProps = {
 };
 
 function StepCategory({
+  styles,
   categorie,
   onSelectCategorie,
   onPublish,
@@ -440,6 +652,7 @@ function StepCategory({
       </View>
 
       <PrimaryButton
+        styles={styles}
         label={publishLabel}
         onPress={onPublish}
         disabled={!categorie}
@@ -450,13 +663,14 @@ function StepCategory({
 }
 
 type PrimaryButtonProps = {
+  styles: Styles;
   label: string;
   onPress: () => void;
   disabled?: boolean;
   loading?: boolean;
 };
 
-function PrimaryButton({ label, onPress, disabled, loading }: PrimaryButtonProps) {
+function PrimaryButton({ styles, label, onPress, disabled, loading }: PrimaryButtonProps) {
   const isDisabled = disabled || loading;
 
   return (
@@ -465,7 +679,8 @@ function PrimaryButton({ label, onPress, disabled, loading }: PrimaryButtonProps
       disabled={isDisabled}
       style={[styles.primaryButton, isDisabled && styles.primaryButtonDisabled]}>
       {loading ? (
-        <ActivityIndicator color={theme.colors.text} />
+        // Blanc fixe : le spinner tourne sur le fond accent rouge du bouton.
+        <ActivityIndicator color="#FFFFFF" />
       ) : (
         <Text
           style={[styles.primaryButtonText, isDisabled && styles.primaryButtonTextDisabled]}>
@@ -475,181 +690,3 @@ function PrimaryButton({ label, onPress, disabled, loading }: PrimaryButtonProps
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  flexFill: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-  },
-  backButton: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.md,
-  },
-  content: {
-    padding: theme.spacing.lg,
-    gap: theme.spacing.lg,
-  },
-  stepGap: {
-    gap: theme.spacing.md,
-  },
-  urlInput: {
-    height: 56,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.card,
-    paddingHorizontal: theme.spacing.md,
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.md,
-  },
-  errorText: {
-    color: theme.colors.error,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.sm,
-  },
-  manualForm: {
-    gap: theme.spacing.md,
-  },
-  uploadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing.sm,
-    height: 48,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1.5,
-    borderColor: theme.colors.accent,
-  },
-  uploadButtonText: {
-    color: theme.colors.accent,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.sm,
-  },
-  pickedImage: {
-    width: '100%',
-    height: 160,
-    borderRadius: theme.borderRadius.md,
-  },
-  previewCard: {
-    backgroundColor: theme.colors.card,
-    borderRadius: theme.borderRadius.md,
-    overflow: 'hidden',
-  },
-  previewCardImage: {
-    width: '100%',
-    height: 160,
-  },
-  previewCardImagePlaceholder: {
-    backgroundColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  previewCardTitle: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.md,
-    padding: theme.spacing.md,
-  },
-  commentInput: {
-    minHeight: 96,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.card,
-    padding: theme.spacing.md,
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.md,
-  },
-  charCount: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.xs,
-    textAlign: 'right',
-    marginTop: theme.spacing.xs,
-  },
-  categoryTitle: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.lg,
-  },
-  categoryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.sm,
-  },
-  categoryTag: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.full,
-    backgroundColor: theme.colors.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  categoryTagSelected: {
-    backgroundColor: theme.colors.accent,
-    borderColor: theme.colors.accent,
-  },
-  categoryTagText: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_500Medium`,
-    fontSize: theme.fontSizes.sm,
-  },
-  categoryTagTextSelected: {
-    color: theme.colors.text,
-  },
-  primaryButton: {
-    height: 52,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryButtonDisabled: {
-    backgroundColor: theme.colors.muted,
-  },
-  primaryButtonText: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.md,
-  },
-  primaryButtonTextDisabled: {
-    color: theme.colors.background,
-  },
-  pressed: {
-    opacity: 0.85,
-  },
-  confirmationSafeArea: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing.sm,
-  },
-  confirmationTitle: {
-    color: theme.colors.accent,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.xl,
-  },
-  confirmationSubtitle: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.md,
-  },
-});

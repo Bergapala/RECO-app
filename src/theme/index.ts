@@ -3,9 +3,27 @@
  * rayons de bordure. Toute nouvelle valeur de design (écran, composant)
  * doit venir d'ici plutôt que d'être codée en dur, pour que l'identité
  * visuelle reste cohérente et facile à ajuster en un seul endroit.
+ *
+ * Deux palettes de couleurs (clair/sombre) coexistent ici, mais ce fichier
+ * reste volontairement statique : c'est src/context/ThemeContext.tsx qui
+ * choisit laquelle utiliser (préférence sauvegardée, mode clair par
+ * défaut) et l'expose aux écrans via le hook useTheme(). N'importe pas
+ * `colors`/`theme` directement dans un écran ou un composant — utilise
+ * toujours useTheme() pour que les couleurs suivent le thème actif.
  */
 
-export const colors = {
+export const lightColors = {
+  background: '#FFFFFF', // fond principal
+  accent: '#C0392B', // rouge RECO — boutons, logo, éléments clés
+  text: '#1A1A1A', // texte principal
+  card: '#F5F5F5', // fond des cartes / champs
+  border: '#E0E0E0', // bordures, séparateurs
+  muted: '#888888', // texte secondaire
+  success: '#27AE60', // vert confirmation
+  error: '#E74C3C', // rouge erreur
+} as const;
+
+export const darkColors = {
   background: '#1A1A1A', // fond principal
   accent: '#C0392B', // rouge RECO — boutons, logo, éléments clés
   text: '#F5F2EE', // texte principal
@@ -16,10 +34,17 @@ export const colors = {
   error: '#E74C3C', // rouge erreur
 } as const;
 
+/** Conservée pour compatibilité (ancienne palette statique, sombre par
+ * défaut) — ne devrait plus être importée nulle part dans src/app ou
+ * src/components après le passage au thème clair/sombre global ; n'utiliser
+ * que useTheme(). */
+export const colors = darkColors;
+
 // Les polices sont chargées via @expo-google-fonts (voir src/app/_layout.tsx),
 // qui expose chaque graisse sous son propre nom de fontFamily
 // (ex. "Syne_800ExtraBold", "Inter_400Regular"). fontTitle/fontBody restent
 // les noms de base des familles, à utiliser pour composer ces noms.
+// Identiques dans les deux palettes — seules les couleurs changent.
 export const fontTitle = 'Syne';
 export const fontBody = 'Inter';
 
@@ -49,7 +74,7 @@ export const borderRadius = {
 } as const;
 
 /**
- * Décline une couleur du thème (hex) avec une opacité donnée (0-1), ex.
+ * Décline une couleur (hex) avec une opacité donnée (0-1), ex.
  * `withOpacity(colors.accent, 0.2)` pour un fond teinté à 20%. Garde les
  * variantes transparentes dérivées des mêmes couleurs de base plutôt que
  * codées en dur ailleurs.
@@ -62,6 +87,8 @@ export function withOpacity(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+/** Ancien objet thème statique (palette sombre) — même remarque que
+ * `colors` ci-dessus : ne plus utiliser directement, préférer useTheme(). */
 export const theme = {
   colors,
   fontTitle,
@@ -72,6 +99,7 @@ export const theme = {
   withOpacity,
 } as const;
 
+export type ThemeColors = Record<keyof typeof lightColors, string>;
 export type Theme = typeof theme;
 
 export default theme;

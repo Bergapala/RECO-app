@@ -13,10 +13,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
+import { useTheme } from '@/context/ThemeContext';
 import { signInWithEmail, signUpWithEmail } from '@/lib/auth';
-import { theme } from '@/theme';
 
 export default function LoginScreen() {
+  const theme = useTheme();
   const router = useRouter();
   const passwordRef = useRef<TextInput>(null);
 
@@ -31,6 +32,135 @@ export default function LoginScreen() {
     [email, password],
   );
   const loading = pendingAction !== null;
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: theme.colors.background,
+        },
+        safeArea: {
+          flex: 1,
+        },
+        flexFill: {
+          flex: 1,
+        },
+        content: {
+          flex: 1,
+          justifyContent: 'center',
+          paddingHorizontal: theme.spacing.lg,
+          gap: theme.spacing.xxl,
+          maxWidth: 420,
+          alignSelf: 'center',
+          width: '100%',
+        },
+        logo: {
+          color: theme.colors.accent,
+          fontFamily: `${theme.fontTitle}_800ExtraBold`,
+          fontSize: theme.fontSizes.xxl,
+          letterSpacing: 2,
+          textAlign: 'center',
+        },
+        form: {
+          gap: theme.spacing.md,
+        },
+        input: {
+          height: 52,
+          borderRadius: theme.borderRadius.md,
+          backgroundColor: theme.colors.card,
+          paddingHorizontal: theme.spacing.md,
+          color: theme.colors.text,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.md,
+        },
+        passwordField: {
+          justifyContent: 'center',
+        },
+        passwordInput: {
+          paddingRight: 48,
+        },
+        eyeButton: {
+          position: 'absolute',
+          right: theme.spacing.md,
+          height: 52,
+          justifyContent: 'center',
+        },
+        errorText: {
+          color: theme.colors.error,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.xs,
+        },
+        actions: {
+          gap: theme.spacing.lg,
+        },
+        primaryButton: {
+          height: 52,
+          borderRadius: theme.borderRadius.md,
+          backgroundColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        primaryButtonDisabled: {
+          backgroundColor: theme.colors.border,
+        },
+        primaryButtonText: {
+          // Blanc fixe, pas theme.colors.text : le fond du bouton reste
+          // l'accent rouge quel que soit le mode clair/sombre.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.md,
+        },
+        primaryButtonTextDisabled: {
+          color: theme.colors.muted,
+        },
+        separatorRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: theme.spacing.sm,
+        },
+        separatorLine: {
+          flex: 1,
+          height: StyleSheet.hairlineWidth,
+          backgroundColor: theme.colors.border,
+        },
+        separatorText: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.xs,
+        },
+        secondaryButton: {
+          height: 52,
+          borderRadius: theme.borderRadius.md,
+          borderWidth: 1.5,
+          borderColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        secondaryButtonDisabled: {
+          borderColor: theme.colors.muted,
+        },
+        secondaryButtonText: {
+          color: theme.colors.accent,
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.md,
+        },
+        secondaryButtonTextDisabled: {
+          color: theme.colors.muted,
+        },
+        phoneLinkText: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_500Medium`,
+          fontSize: theme.fontSizes.sm,
+          textAlign: 'center',
+          textDecorationLine: 'underline',
+        },
+        pressed: {
+          opacity: 0.8,
+        },
+      }),
+    [theme],
+  );
 
   async function handleLogin() {
     if (!isFormValid || loading) return;
@@ -179,126 +309,3 @@ export default function LoginScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  flexFill: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    gap: theme.spacing.xxl,
-    maxWidth: 420,
-    alignSelf: 'center',
-    width: '100%',
-  },
-  logo: {
-    color: theme.colors.accent,
-    fontFamily: `${theme.fontTitle}_800ExtraBold`,
-    fontSize: theme.fontSizes.xxl,
-    letterSpacing: 2,
-    textAlign: 'center',
-  },
-  form: {
-    gap: theme.spacing.md,
-  },
-  input: {
-    height: 52,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.card,
-    paddingHorizontal: theme.spacing.md,
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.md,
-  },
-  passwordField: {
-    justifyContent: 'center',
-  },
-  passwordInput: {
-    paddingRight: 48,
-  },
-  eyeButton: {
-    position: 'absolute',
-    right: theme.spacing.md,
-    height: 52,
-    justifyContent: 'center',
-  },
-  errorText: {
-    color: theme.colors.error,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.xs,
-  },
-  actions: {
-    gap: theme.spacing.lg,
-  },
-  primaryButton: {
-    height: 52,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryButtonDisabled: {
-    backgroundColor: theme.colors.border,
-  },
-  primaryButtonText: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.md,
-  },
-  primaryButtonTextDisabled: {
-    color: theme.colors.muted,
-  },
-  separatorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-  },
-  separatorLine: {
-    flex: 1,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: theme.colors.border,
-  },
-  separatorText: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.xs,
-  },
-  secondaryButton: {
-    height: 52,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1.5,
-    borderColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryButtonDisabled: {
-    borderColor: theme.colors.muted,
-  },
-  secondaryButtonText: {
-    color: theme.colors.accent,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.md,
-  },
-  secondaryButtonTextDisabled: {
-    color: theme.colors.muted,
-  },
-  phoneLinkText: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_500Medium`,
-    fontSize: theme.fontSizes.sm,
-    textAlign: 'center',
-    textDecorationLine: 'underline',
-  },
-  pressed: {
-    opacity: 0.8,
-  },
-});

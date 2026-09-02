@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
+import { useTheme } from '@/context/ThemeContext';
 import { getCurrentUserId, signOut } from '@/lib/auth';
 import { goBack } from '@/lib/navigation';
 import { registerForPushNotifications } from '@/lib/push';
@@ -27,7 +28,6 @@ import {
   updatePrenom,
   type NotifHourSlot,
 } from '@/lib/users';
-import { theme } from '@/theme';
 
 const DAYS: { value: number; label: string }[] = [
   { value: 0, label: 'Lun' },
@@ -47,6 +47,7 @@ const HOUR_SLOTS: { value: NotifHourSlot; label: string }[] = [
 ];
 
 export default function SettingsScreen() {
+  const theme = useTheme();
   const router = useRouter();
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -151,6 +152,10 @@ export default function SettingsScreen() {
     if (currentUserId) await updateNotificationPrefs(currentUserId, { notifNewRecos: value });
   }
 
+  function handleToggleDarkMode(value: boolean) {
+    theme.setMode(value ? 'dark' : 'light');
+  }
+
   async function handleSignOut() {
     await signOut();
     router.replace('/login');
@@ -158,9 +163,175 @@ export default function SettingsScreen() {
 
   const initial = prenom.trim().charAt(0).toUpperCase() || '?';
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: theme.colors.background,
+        },
+        safeArea: {
+          flex: 1,
+        },
+        header: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: theme.spacing.md,
+          paddingVertical: theme.spacing.sm,
+        },
+        backButton: {
+          width: 32,
+          height: 32,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        headerTitle: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.md,
+        },
+        content: {
+          paddingHorizontal: theme.spacing.lg,
+          paddingTop: theme.spacing.xl,
+          paddingBottom: theme.spacing.xl,
+          gap: theme.spacing.xl,
+        },
+        profileSection: {
+          alignItems: 'center',
+          gap: theme.spacing.sm,
+        },
+        avatarWrapper: {
+          width: 80,
+          height: 80,
+        },
+        avatar: {
+          width: 80,
+          height: 80,
+          borderRadius: theme.borderRadius.full,
+        },
+        avatarFallback: {
+          backgroundColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        avatarInitial: {
+          // Blanc fixe : le fond du cercle reste l'accent rouge quel que
+          // soit le mode clair/sombre.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.xl,
+        },
+        avatarEditBadge: {
+          position: 'absolute',
+          bottom: 0,
+          right: 0,
+          width: 26,
+          height: 26,
+          borderRadius: theme.borderRadius.full,
+          backgroundColor: theme.colors.accent,
+          borderWidth: 2,
+          borderColor: theme.colors.background,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        avatarHint: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.xs,
+          marginBottom: theme.spacing.sm,
+        },
+        field: {
+          width: '100%',
+          gap: theme.spacing.xs,
+        },
+        fieldLabel: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_500Medium`,
+          fontSize: theme.fontSizes.xs,
+        },
+        fieldInput: {
+          height: 52,
+          borderRadius: theme.borderRadius.md,
+          backgroundColor: theme.colors.card,
+          paddingHorizontal: theme.spacing.md,
+          color: theme.colors.text,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.md,
+        },
+        section: {
+          gap: theme.spacing.md,
+        },
+        sectionTitle: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.md,
+        },
+        prefRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        },
+        prefLabelRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: theme.spacing.xs,
+        },
+        prefBlock: {
+          gap: theme.spacing.sm,
+        },
+        prefLabel: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.sm,
+        },
+        chipRow: {
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          gap: theme.spacing.xs,
+        },
+        chip: {
+          paddingHorizontal: theme.spacing.sm,
+          paddingVertical: 6,
+          borderRadius: theme.borderRadius.full,
+          backgroundColor: theme.colors.card,
+          borderWidth: 1,
+          borderColor: theme.colors.border,
+        },
+        chipSelected: {
+          backgroundColor: theme.colors.accent,
+          borderColor: theme.colors.accent,
+        },
+        chipText: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontBody}_500Medium`,
+          fontSize: theme.fontSizes.xs,
+        },
+        chipTextSelected: {
+          // Blanc fixe, pas theme.colors.text : le fond de la puce
+          // sélectionnée reste l'accent rouge quel que soit le mode.
+          color: '#FFFFFF',
+        },
+        signOutButton: {
+          height: 52,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        signOutText: {
+          color: theme.colors.error,
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.md,
+        },
+        pressed: {
+          opacity: 0.85,
+        },
+      }),
+    [theme],
+  );
+
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
+      <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <Pressable onPress={() => goBack(router)} hitSlop={12} style={styles.backButton}>
@@ -184,7 +355,8 @@ export default function SettingsScreen() {
                 </View>
               )}
               <View style={styles.avatarEditBadge}>
-                <Feather name="camera" size={14} color={theme.colors.text} />
+                {/* Blanc fixe : le badge reste sur fond accent rouge. */}
+                <Feather name="camera" size={14} color="#FFFFFF" />
               </View>
             </Pressable>
             <Text style={styles.avatarHint}>
@@ -207,12 +379,24 @@ export default function SettingsScreen() {
             <Text style={styles.sectionTitle}>Préférences</Text>
 
             <View style={styles.prefRow}>
+              <View style={styles.prefLabelRow}>
+                <Text style={styles.prefLabel}>🌙 Mode sombre</Text>
+              </View>
+              <Switch
+                value={theme.mode === 'dark'}
+                onValueChange={handleToggleDarkMode}
+                trackColor={{ false: theme.colors.border, true: theme.colors.accent }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+
+            <View style={styles.prefRow}>
               <Text style={styles.prefLabel}>Notifications activées</Text>
               <Switch
                 value={notifEnabled}
                 onValueChange={handleToggleEnabled}
                 trackColor={{ false: theme.colors.border, true: theme.colors.accent }}
-                thumbColor={theme.colors.text}
+                thumbColor="#FFFFFF"
               />
             </View>
 
@@ -260,7 +444,7 @@ export default function SettingsScreen() {
                 value={notifReactions}
                 onValueChange={handleToggleReactions}
                 trackColor={{ false: theme.colors.border, true: theme.colors.accent }}
-                thumbColor={theme.colors.text}
+                thumbColor="#FFFFFF"
               />
             </View>
 
@@ -270,7 +454,7 @@ export default function SettingsScreen() {
                 value={notifNewRecos}
                 onValueChange={handleToggleNewRecos}
                 trackColor={{ false: theme.colors.border, true: theme.colors.accent }}
-                thumbColor={theme.colors.text}
+                thumbColor="#FFFFFF"
               />
             </View>
           </View>
@@ -285,156 +469,3 @@ export default function SettingsScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-  },
-  backButton: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.md,
-  },
-  content: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.xl,
-    paddingBottom: theme.spacing.xl,
-    gap: theme.spacing.xl,
-  },
-  profileSection: {
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-  },
-  avatarWrapper: {
-    width: 80,
-    height: 80,
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: theme.borderRadius.full,
-  },
-  avatarFallback: {
-    backgroundColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarInitial: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.xl,
-  },
-  avatarEditBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 26,
-    height: 26,
-    borderRadius: theme.borderRadius.full,
-    backgroundColor: theme.colors.accent,
-    borderWidth: 2,
-    borderColor: theme.colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarHint: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.xs,
-    marginBottom: theme.spacing.sm,
-  },
-  field: {
-    width: '100%',
-    gap: theme.spacing.xs,
-  },
-  fieldLabel: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_500Medium`,
-    fontSize: theme.fontSizes.xs,
-  },
-  fieldInput: {
-    height: 52,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.card,
-    paddingHorizontal: theme.spacing.md,
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.md,
-  },
-  section: {
-    gap: theme.spacing.md,
-  },
-  sectionTitle: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.md,
-  },
-  prefRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  prefBlock: {
-    gap: theme.spacing.sm,
-  },
-  prefLabel: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.sm,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.xs,
-  },
-  chip: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 6,
-    borderRadius: theme.borderRadius.full,
-    backgroundColor: theme.colors.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  chipSelected: {
-    backgroundColor: theme.colors.accent,
-    borderColor: theme.colors.accent,
-  },
-  chipText: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_500Medium`,
-    fontSize: theme.fontSizes.xs,
-  },
-  chipTextSelected: {
-    color: theme.colors.text,
-  },
-  signOutButton: {
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  signOutText: {
-    color: theme.colors.error,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.md,
-  },
-  pressed: {
-    opacity: 0.85,
-  },
-});

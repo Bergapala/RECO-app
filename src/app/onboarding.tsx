@@ -1,19 +1,11 @@
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  useColorScheme,
-  useWindowDimensions,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
-import { theme } from '@/theme';
+import { useTheme } from '@/context/ThemeContext';
 
 type Slide = {
   title: string;
@@ -45,23 +37,11 @@ const slides: Slide[] = [
 const lastSlideIndex = slides.length - 1;
 
 export default function OnboardingScreen() {
+  const theme = useTheme();
   const router = useRouter();
   const { width } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
-
-  // Seul cet écran suit le mode sombre/clair du téléphone — le reste de
-  // l'app reste volontairement toujours sombre (voir src/theme/index.ts),
-  // ce changement est scopé à l'onboarding uniquement, comme demandé.
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme !== 'light';
-  const colors = {
-    background: isDark ? '#1A1A1A' : '#FFFFFF',
-    text: isDark ? '#F5F2EE' : '#1A1A1A',
-    muted: theme.colors.muted,
-    card: isDark ? theme.colors.card : '#EDEDED',
-    dotInactive: isDark ? theme.colors.border : '#DDDDDD',
-  };
 
   function goToCompleteProfile() {
     router.replace('/complete-profile');
@@ -82,9 +62,118 @@ export default function OnboardingScreen() {
     setActiveIndex(nextIndex);
   }
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: theme.colors.background,
+        },
+        safeArea: {
+          flex: 1,
+        },
+        topBar: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: theme.spacing.lg,
+          paddingTop: theme.spacing.sm,
+          height: 44,
+        },
+        sideSlot: {
+          width: 56,
+        },
+        sideSlotEnd: {
+          alignItems: 'flex-end',
+        },
+        dots: {
+          flex: 1,
+          flexDirection: 'row',
+          justifyContent: 'center',
+          gap: theme.spacing.xs,
+        },
+        dot: {
+          width: 8,
+          height: 8,
+          borderRadius: theme.borderRadius.full,
+          backgroundColor: theme.colors.border,
+        },
+        dotActive: {
+          backgroundColor: theme.colors.accent,
+        },
+        skipText: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_500Medium`,
+          fontSize: theme.fontSizes.sm,
+        },
+        pager: {
+          flex: 1,
+        },
+        slide: {
+          flex: 1,
+          paddingHorizontal: theme.spacing.lg,
+          paddingBottom: theme.spacing.xl,
+        },
+        slideBody: {
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: theme.spacing.md,
+        },
+        imagePlaceholder: {
+          width: '85%',
+          height: 380,
+          borderRadius: theme.borderRadius.md,
+          backgroundColor: theme.colors.card,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: theme.spacing.sm,
+        },
+        placeholderText: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_500Medium`,
+          fontSize: theme.fontSizes.md,
+          textAlign: 'center',
+        },
+        title: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.xl,
+          textAlign: 'center',
+        },
+        description: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.md,
+          textAlign: 'center',
+          lineHeight: theme.fontSizes.md * 1.4,
+          paddingHorizontal: theme.spacing.lg,
+          maxWidth: 360,
+        },
+        button: {
+          borderRadius: theme.borderRadius.full,
+          backgroundColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: theme.spacing.md,
+        },
+        buttonPressed: {
+          opacity: 0.85,
+        },
+        buttonText: {
+          // Toujours blanc, jamais theme.colors.text : le fond du bouton
+          // reste l'accent rouge fixe quel que soit le mode clair/sombre,
+          // le texte doit donc rester lisible dessus dans les deux cas.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.md,
+        },
+      }),
+    [theme],
+  );
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
+    <View style={styles.container}>
+      <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.topBar}>
           <View style={styles.sideSlot} />
@@ -93,11 +182,7 @@ export default function OnboardingScreen() {
             {slides.map((slide, index) => (
               <View
                 key={slide.title}
-                style={[
-                  styles.dot,
-                  { backgroundColor: colors.dotInactive },
-                  index === activeIndex && styles.dotActive,
-                ]}
+                style={[styles.dot, index === activeIndex && styles.dotActive]}
               />
             ))}
           </View>
@@ -105,7 +190,7 @@ export default function OnboardingScreen() {
           <View style={[styles.sideSlot, styles.sideSlotEnd]}>
             {activeIndex < lastSlideIndex && (
               <Pressable onPress={goToCompleteProfile} hitSlop={12}>
-                <Text style={[styles.skipText, { color: colors.muted }]}>Passer</Text>
+                <Text style={styles.skipText}>Passer</Text>
               </Pressable>
             )}
           </View>
@@ -122,16 +207,12 @@ export default function OnboardingScreen() {
           {slides.map((slide) => (
             <View key={slide.title} style={[styles.slide, { width }]}>
               <View style={styles.slideBody}>
-                <View style={[styles.imagePlaceholder, { backgroundColor: colors.card }]}>
-                  <Text style={[styles.placeholderText, { color: colors.muted }]}>
-                    📸 Capture d’écran à venir
-                  </Text>
+                <View style={styles.imagePlaceholder}>
+                  <Text style={styles.placeholderText}>📸 Capture d’écran à venir</Text>
                 </View>
 
-                <Text style={[styles.title, { color: colors.text }]}>{slide.title}</Text>
-                <Text style={[styles.description, { color: colors.muted }]}>
-                  {slide.description}
-                </Text>
+                <Text style={styles.title}>{slide.title}</Text>
+                <Text style={styles.description}>{slide.description}</Text>
               </View>
 
               <Pressable
@@ -146,98 +227,3 @@ export default function OnboardingScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.sm,
-    height: 44,
-  },
-  sideSlot: {
-    width: 56,
-  },
-  sideSlotEnd: {
-    alignItems: 'flex-end',
-  },
-  dots: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: theme.spacing.xs,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: theme.borderRadius.full,
-  },
-  dotActive: {
-    backgroundColor: theme.colors.accent,
-  },
-  skipText: {
-    fontFamily: `${theme.fontBody}_500Medium`,
-    fontSize: theme.fontSizes.sm,
-  },
-  pager: {
-    flex: 1,
-  },
-  slide: {
-    flex: 1,
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.xl,
-  },
-  slideBody: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing.md,
-  },
-  imagePlaceholder: {
-    width: '85%',
-    height: 380,
-    borderRadius: theme.borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: theme.spacing.sm,
-  },
-  placeholderText: {
-    fontFamily: `${theme.fontBody}_500Medium`,
-    fontSize: theme.fontSizes.md,
-    textAlign: 'center',
-  },
-  title: {
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.xl,
-    textAlign: 'center',
-  },
-  description: {
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.md,
-    textAlign: 'center',
-    lineHeight: theme.fontSizes.md * 1.4,
-    paddingHorizontal: theme.spacing.lg,
-    maxWidth: 360,
-  },
-  button: {
-    borderRadius: theme.borderRadius.full,
-    backgroundColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: theme.spacing.md,
-  },
-  buttonPressed: {
-    opacity: 0.85,
-  },
-  buttonText: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.md,
-  },
-});

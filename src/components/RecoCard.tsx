@@ -1,9 +1,10 @@
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useMemo } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { useTheme } from '@/context/ThemeContext';
 import type { FeedReco } from '@/lib/recos';
-import { theme } from '@/theme';
 
 const IMAGE_HEIGHT = 200;
 
@@ -41,6 +42,7 @@ export function RecoCard({
   onToggleSave,
   currentUserId,
 }: RecoCardProps) {
+  const theme = useTheme();
   const router = useRouter();
   const authorInitial = (reco.author.prenom ?? '?').trim().charAt(0).toUpperCase();
   const isOwnReco = reco.author.id === currentUserId;
@@ -48,6 +50,130 @@ export function RecoCard({
   function goToAuthor() {
     router.push(isOwnReco ? '/profile' : `/profile/${reco.author.id}`);
   }
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        card: {
+          backgroundColor: theme.colors.card,
+          borderRadius: theme.borderRadius.md,
+          marginHorizontal: theme.spacing.lg,
+          marginBottom: theme.spacing.md,
+          overflow: 'hidden',
+        },
+        cardPressed: {
+          opacity: 0.9,
+        },
+        imageContainer: {
+          height: IMAGE_HEIGHT,
+        },
+        image: {
+          width: '100%',
+          height: IMAGE_HEIGHT,
+        },
+        imagePlaceholder: {
+          backgroundColor: theme.colors.border,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        authorOverlay: {
+          position: 'absolute',
+          top: theme.spacing.sm,
+          left: theme.spacing.sm,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: theme.spacing.xs,
+        },
+        avatar: {
+          width: 28,
+          height: 28,
+          borderRadius: theme.borderRadius.full,
+        },
+        avatarFallback: {
+          backgroundColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        avatarInitial: {
+          // Blanc fixe : le fond du cercle reste l'accent rouge quel que
+          // soit le mode clair/sombre.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.xs,
+        },
+        authorName: {
+          // Blanc fixe, pas theme.colors.text : ce nom est posé sur la
+          // photo de la reco (couleur arbitraire), pas sur le fond de
+          // l'app — il doit rester lisible dans les deux modes, avec
+          // l'ombre portée (overlayTextShadow) comme filet de sécurité.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.sm,
+        },
+        categoryTag: {
+          position: 'absolute',
+          top: theme.spacing.sm,
+          right: theme.spacing.sm,
+          backgroundColor: 'rgba(0, 0, 0, 0.4)',
+          borderRadius: theme.borderRadius.full,
+          paddingHorizontal: theme.spacing.sm,
+          paddingVertical: 4,
+        },
+        categoryTagText: {
+          // Blanc fixe : la pastille garde un fond noir semi-transparent
+          // fixe quel que soit le mode clair/sombre.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.xs,
+        },
+        body: {
+          padding: theme.spacing.md,
+          gap: theme.spacing.xs,
+        },
+        title: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.md,
+        },
+        comment: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.sm,
+          lineHeight: theme.fontSizes.sm * 1.4,
+        },
+        actionsBar: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          backgroundColor: theme.colors.card,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: theme.colors.border,
+          paddingHorizontal: theme.spacing.md,
+          paddingVertical: theme.spacing.sm,
+        },
+        actionsLeft: {
+          flexDirection: 'row',
+          gap: theme.spacing.sm,
+        },
+        actionButton: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: theme.spacing.xs,
+        },
+        actionEmoji: {
+          fontSize: theme.fontSizes.md,
+        },
+        actionCount: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.sm,
+        },
+        bookmarkButton: {
+          padding: theme.spacing.xs,
+        },
+      }),
+    [theme],
+  );
 
   return (
     <Pressable
@@ -132,115 +258,3 @@ export function RecoCard({
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: theme.colors.card,
-    borderRadius: theme.borderRadius.md,
-    marginHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
-    overflow: 'hidden',
-  },
-  cardPressed: {
-    opacity: 0.9,
-  },
-  imageContainer: {
-    height: IMAGE_HEIGHT,
-  },
-  image: {
-    width: '100%',
-    height: IMAGE_HEIGHT,
-  },
-  imagePlaceholder: {
-    backgroundColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  authorOverlay: {
-    position: 'absolute',
-    top: theme.spacing.sm,
-    left: theme.spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
-  },
-  avatar: {
-    width: 28,
-    height: 28,
-    borderRadius: theme.borderRadius.full,
-  },
-  avatarFallback: {
-    backgroundColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarInitial: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.xs,
-  },
-  authorName: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.sm,
-  },
-  categoryTag: {
-    position: 'absolute',
-    top: theme.spacing.sm,
-    right: theme.spacing.sm,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    borderRadius: theme.borderRadius.full,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 4,
-  },
-  categoryTagText: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.xs,
-  },
-  body: {
-    padding: theme.spacing.md,
-    gap: theme.spacing.xs,
-  },
-  title: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.md,
-  },
-  comment: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.sm,
-    lineHeight: theme.fontSizes.sm * 1.4,
-  },
-  actionsBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: theme.colors.card,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: theme.colors.border,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-  },
-  actionsLeft: {
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
-  },
-  actionEmoji: {
-    fontSize: theme.fontSizes.md,
-  },
-  actionCount: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.sm,
-  },
-  bookmarkButton: {
-    padding: theme.spacing.xs,
-  },
-});

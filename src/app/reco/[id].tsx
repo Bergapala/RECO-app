@@ -1,6 +1,6 @@
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,6 +19,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
+import { useTheme } from '@/context/ThemeContext';
 import { useRecoReactions } from '@/hooks/use-reco-reactions';
 import { useSavedRecos } from '@/hooks/use-saved-recos';
 import { getCurrentUserId } from '@/lib/auth';
@@ -26,7 +27,6 @@ import { fetchComments, postComment, subscribeToComments, type RecoComment } fro
 import { getFriendsList, type FriendListItem } from '@/lib/friends';
 import { goBack } from '@/lib/navigation';
 import { deleteReco, getRecoById, type FeedReco } from '@/lib/recos';
-import { theme } from '@/theme';
 
 function formatDate(iso: string): string {
   return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' }).format(
@@ -36,13 +36,15 @@ function formatDate(iso: string): string {
 
 /**
  * Découpe le texte d'un commentaire déjà posté pour mettre en évidence les
- * @mentions (voir handleSelectMention) — rendues en colors.accent via des
- * <Text> imbriqués, RN les fusionne visuellement dans le paragraphe.
+ * @mentions (voir handleSelectMention) — rendues dans la couleur accent via
+ * des <Text> imbriqués, RN les fusionne visuellement dans le paragraphe.
+ * `accentColor` est transmis par le composant plutôt qu'importé
+ * statiquement pour rester cohérent avec le thème actif.
  */
-function renderMentionText(text: string) {
+function renderMentionText(text: string, accentColor: string) {
   return text.split(/(@[^\s@]+)/g).map((part, index) =>
     part.startsWith('@') ? (
-      <Text key={index} style={{ color: theme.colors.accent }}>
+      <Text key={index} style={{ color: accentColor }}>
         {part}
       </Text>
     ) : (
@@ -67,17 +69,20 @@ function getMentionQuery(text: string, cursor: number): string | null {
   return afterAt;
 }
 
-// Le champ de commentaire s'agrandit avec le texte tapé, entre 1 et 4
-// lignes (au-delà, il scrolle en interne — comportement natif d'un
-// TextInput multiline une fois sa hauteur plafonnée).
-const COMMENT_INPUT_LINE_HEIGHT = theme.fontSizes.sm * 1.4;
-const COMMENT_INPUT_VERTICAL_PADDING = theme.spacing.sm;
-const COMMENT_INPUT_MIN_HEIGHT = COMMENT_INPUT_LINE_HEIGHT + COMMENT_INPUT_VERTICAL_PADDING * 2;
-const COMMENT_INPUT_MAX_HEIGHT = COMMENT_INPUT_LINE_HEIGHT * 4 + COMMENT_INPUT_VERTICAL_PADDING * 2;
-
 export default function RecoDetailScreen() {
+  const theme = useTheme();
   const router = useRouter();
   const { id, focusComment } = useLocalSearchParams<{ id: string; focusComment?: string }>();
+
+  // Le champ de commentaire s'agrandit avec le texte tapé, entre 1 et 4
+  // lignes (au-delà, il scrolle en interne — comportement natif d'un
+  // TextInput multiline une fois sa hauteur plafonnée). fontSizes/spacing
+  // sont identiques dans les deux palettes, mais recalculés ici via le
+  // thème actif plutôt qu'importés statiquement, par cohérence.
+  const COMMENT_INPUT_LINE_HEIGHT = theme.fontSizes.sm * 1.4;
+  const COMMENT_INPUT_VERTICAL_PADDING = theme.spacing.sm;
+  const COMMENT_INPUT_MIN_HEIGHT = COMMENT_INPUT_LINE_HEIGHT + COMMENT_INPUT_VERTICAL_PADDING * 2;
+  const COMMENT_INPUT_MAX_HEIGHT = COMMENT_INPUT_LINE_HEIGHT * 4 + COMMENT_INPUT_VERTICAL_PADDING * 2;
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [recos, setRecos] = useState<FeedReco[]>([]);
@@ -257,10 +262,315 @@ export default function RecoDetailScreen() {
           .slice(0, 5)
       : [];
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: theme.colors.background,
+        },
+        safeArea: {
+          flex: 1,
+        },
+        loadingSafeArea: {
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        flexFill: {
+          flex: 1,
+        },
+        header: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: theme.spacing.md,
+          paddingVertical: theme.spacing.sm,
+        },
+        headerButton: {
+          width: 32,
+          height: 32,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        headerActions: {
+          flexDirection: 'row',
+          gap: theme.spacing.xs,
+        },
+        scrollContent: {
+          paddingBottom: theme.spacing.xl,
+        },
+        image: {
+          width: '100%',
+          height: 250,
+          borderBottomLeftRadius: theme.borderRadius.md,
+          borderBottomRightRadius: theme.borderRadius.md,
+        },
+        imagePlaceholder: {
+          backgroundColor: theme.colors.border,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        body: {
+          paddingHorizontal: theme.spacing.lg,
+          paddingTop: theme.spacing.md,
+          paddingBottom: theme.spacing.sm,
+          gap: theme.spacing.sm,
+        },
+        title: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.xl,
+        },
+        metaRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        },
+        authorRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: theme.spacing.sm,
+        },
+        avatar: {
+          width: 28,
+          height: 28,
+          borderRadius: theme.borderRadius.full,
+        },
+        avatarFallback: {
+          backgroundColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        avatarInitial: {
+          // Blanc fixe : le fond du cercle reste l'accent rouge quel que
+          // soit le mode clair/sombre.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.xs,
+        },
+        authorName: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.sm,
+        },
+        date: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.xs,
+        },
+        categoryTag: {
+          backgroundColor: 'rgba(0, 0, 0, 0.4)',
+          borderRadius: theme.borderRadius.full,
+          paddingHorizontal: theme.spacing.sm,
+          paddingVertical: 4,
+        },
+        categoryTagText: {
+          // Blanc fixe : la pastille garde un fond noir semi-transparent
+          // fixe quel que soit le mode clair/sombre.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.xs,
+        },
+        comment: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.md,
+          lineHeight: theme.fontSizes.md * 1.5,
+        },
+        linkButton: {
+          height: 52,
+          borderRadius: theme.borderRadius.md,
+          backgroundColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        linkButtonText: {
+          // Blanc fixe, pas theme.colors.text : le fond du bouton reste
+          // l'accent rouge quel que soit le mode clair/sombre.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.md,
+        },
+        separator: {
+          height: StyleSheet.hairlineWidth,
+          backgroundColor: theme.colors.border,
+        },
+        commentsTitle: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.md,
+        },
+        emptyText: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.sm,
+          paddingHorizontal: theme.spacing.lg,
+        },
+        commentSeparator: {
+          height: theme.spacing.md,
+        },
+        commentRow: {
+          flexDirection: 'row',
+          gap: theme.spacing.sm,
+          paddingHorizontal: theme.spacing.lg,
+        },
+        commentAvatar: {
+          width: 32,
+          height: 32,
+          borderRadius: theme.borderRadius.full,
+        },
+        commentAvatarInitial: {
+          // Blanc fixe : même raison que avatarInitial ci-dessus.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.xs,
+        },
+        commentBody: {
+          flex: 1,
+          gap: 2,
+        },
+        commentHeader: {
+          flexDirection: 'row',
+          alignItems: 'baseline',
+          gap: theme.spacing.xs,
+        },
+        commentAuthor: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.sm,
+        },
+        commentDate: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.xs,
+        },
+        commentText: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.sm,
+        },
+        actionsBar: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          // Cette barre garde volontairement un fond sombre fixe (verre
+          // teinté, comme la pilule de navigation flottante) quel que soit
+          // le mode clair/sombre de l'app.
+          backgroundColor: 'rgba(28, 28, 28, 0.85)',
+          borderRadius: theme.borderRadius.full,
+          paddingHorizontal: theme.spacing.lg,
+          paddingVertical: theme.spacing.sm,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 6,
+          elevation: 4,
+        },
+        actionsLeft: {
+          flexDirection: 'row',
+          gap: theme.spacing.sm,
+        },
+        actionButton: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: theme.spacing.xs,
+        },
+        actionEmoji: {
+          fontSize: theme.fontSizes.md,
+        },
+        actionCount: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.sm,
+        },
+        bookmarkButton: {
+          padding: theme.spacing.xs,
+        },
+        mentionSuggestions: {
+          backgroundColor: theme.colors.card,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: theme.colors.border,
+          paddingVertical: theme.spacing.xs,
+        },
+        mentionRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: theme.spacing.sm,
+          paddingHorizontal: theme.spacing.lg,
+          paddingVertical: theme.spacing.sm,
+        },
+        mentionAvatar: {
+          width: 28,
+          height: 28,
+          borderRadius: theme.borderRadius.full,
+        },
+        mentionAvatarInitial: {
+          // Blanc fixe : même raison que avatarInitial ci-dessus.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.xs,
+        },
+        mentionName: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontBody}_500Medium`,
+          fontSize: theme.fontSizes.sm,
+        },
+        commentInputRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: theme.spacing.sm,
+          paddingHorizontal: theme.spacing.lg,
+          paddingVertical: theme.spacing.sm,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: theme.colors.border,
+        },
+        commentInput: {
+          flex: 1,
+          borderRadius: theme.borderRadius.md,
+          backgroundColor: theme.colors.card,
+          paddingHorizontal: theme.spacing.md,
+          paddingVertical: COMMENT_INPUT_VERTICAL_PADDING,
+          color: theme.colors.text,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.sm,
+          lineHeight: COMMENT_INPUT_LINE_HEIGHT,
+        },
+        sendButton: {
+          height: 44,
+          paddingHorizontal: theme.spacing.md,
+          borderRadius: theme.borderRadius.full,
+          backgroundColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        sendButtonDisabled: {
+          backgroundColor: theme.colors.border,
+        },
+        sendButtonText: {
+          // Blanc fixe, pas theme.colors.text : le fond du bouton reste
+          // l'accent rouge quand il est actif (voir sendButtonTextDisabled
+          // pour l'état désactivé, sur fond adaptatif).
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.sm,
+        },
+        sendButtonTextDisabled: {
+          color: theme.colors.muted,
+        },
+        pressed: {
+          opacity: 0.85,
+        },
+      }),
+    [theme, COMMENT_INPUT_LINE_HEIGHT, COMMENT_INPUT_VERTICAL_PADDING],
+  );
+
+  const statusBarStyle = theme.mode === 'dark' ? 'light' : 'dark';
+
   if (loading) {
     return (
       <View style={styles.container}>
-        <StatusBar style="light" />
+        <StatusBar style={statusBarStyle} />
         <SafeAreaView style={styles.loadingSafeArea}>
           <ActivityIndicator color={theme.colors.accent} />
         </SafeAreaView>
@@ -271,7 +581,7 @@ export default function RecoDetailScreen() {
   if (!reco) {
     return (
       <View style={styles.container}>
-        <StatusBar style="light" />
+        <StatusBar style={statusBarStyle} />
         <SafeAreaView style={styles.loadingSafeArea}>
           <Text style={styles.emptyText}>Cette reco n&rsquo;existe plus.</Text>
         </SafeAreaView>
@@ -279,9 +589,11 @@ export default function RecoDetailScreen() {
     );
   }
 
+  const isSendDisabled = commentText.trim().length === 0 || posting;
+
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
+      <StatusBar style={statusBarStyle} />
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.header}>
           <Pressable onPress={() => goBack(router)} hitSlop={12} style={styles.headerButton}>
@@ -430,7 +742,9 @@ export default function RecoDetailScreen() {
                     <Text style={styles.commentAuthor}>{item.author.prenom ?? 'Sans nom'}</Text>
                     <Text style={styles.commentDate}>{formatDate(item.createdAt)}</Text>
                   </View>
-                  <Text style={styles.commentText}>{renderMentionText(item.texte)}</Text>
+                  <Text style={styles.commentText}>
+                    {renderMentionText(item.texte, theme.colors.accent)}
+                  </Text>
                 </View>
               </View>
             )}
@@ -490,12 +804,11 @@ export default function RecoDetailScreen() {
             />
             <Pressable
               onPress={handleSendComment}
-              disabled={commentText.trim().length === 0 || posting}
-              style={[
-                styles.sendButton,
-                (commentText.trim().length === 0 || posting) && styles.sendButtonDisabled,
-              ]}>
-              <Text style={styles.sendButtonText}>Envoyer</Text>
+              disabled={isSendDisabled}
+              style={[styles.sendButton, isSendDisabled && styles.sendButtonDisabled]}>
+              <Text style={[styles.sendButtonText, isSendDisabled && styles.sendButtonTextDisabled]}>
+                Envoyer
+              </Text>
             </Pressable>
           </View>
         </KeyboardAvoidingView>
@@ -503,285 +816,3 @@ export default function RecoDetailScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  loadingSafeArea: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  flexFill: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-  },
-  headerButton: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: theme.spacing.xs,
-  },
-  scrollContent: {
-    paddingBottom: theme.spacing.xl,
-  },
-  image: {
-    width: '100%',
-    height: 250,
-    borderBottomLeftRadius: theme.borderRadius.md,
-    borderBottomRightRadius: theme.borderRadius.md,
-  },
-  imagePlaceholder: {
-    backgroundColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  body: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.sm,
-    gap: theme.spacing.sm,
-  },
-  title: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.xl,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  authorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-  },
-  avatar: {
-    width: 28,
-    height: 28,
-    borderRadius: theme.borderRadius.full,
-  },
-  avatarFallback: {
-    backgroundColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarInitial: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.xs,
-  },
-  authorName: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.sm,
-  },
-  date: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.xs,
-  },
-  categoryTag: {
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    borderRadius: theme.borderRadius.full,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 4,
-  },
-  categoryTagText: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.xs,
-  },
-  comment: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.md,
-    lineHeight: theme.fontSizes.md * 1.5,
-  },
-  linkButton: {
-    height: 52,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  linkButtonText: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.md,
-  },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: theme.colors.border,
-  },
-  commentsTitle: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.md,
-  },
-  emptyText: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.sm,
-    paddingHorizontal: theme.spacing.lg,
-  },
-  commentSeparator: {
-    height: theme.spacing.md,
-  },
-  commentRow: {
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.lg,
-  },
-  commentAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: theme.borderRadius.full,
-  },
-  commentAvatarInitial: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.xs,
-  },
-  commentBody: {
-    flex: 1,
-    gap: 2,
-  },
-  commentHeader: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: theme.spacing.xs,
-  },
-  commentAuthor: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.sm,
-  },
-  commentDate: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.xs,
-  },
-  commentText: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.sm,
-  },
-  actionsBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(28, 28, 28, 0.85)',
-    borderRadius: theme.borderRadius.full,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  actionsLeft: {
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
-  },
-  actionEmoji: {
-    fontSize: theme.fontSizes.md,
-  },
-  actionCount: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.sm,
-  },
-  bookmarkButton: {
-    padding: theme.spacing.xs,
-  },
-  mentionSuggestions: {
-    backgroundColor: theme.colors.card,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: theme.colors.border,
-    paddingVertical: theme.spacing.xs,
-  },
-  mentionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
-  },
-  mentionAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: theme.borderRadius.full,
-  },
-  mentionAvatarInitial: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.xs,
-  },
-  mentionName: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_500Medium`,
-    fontSize: theme.fontSizes.sm,
-  },
-  commentInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: theme.colors.border,
-  },
-  commentInput: {
-    flex: 1,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.card,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: COMMENT_INPUT_VERTICAL_PADDING,
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.sm,
-    lineHeight: COMMENT_INPUT_LINE_HEIGHT,
-  },
-  sendButton: {
-    height: 44,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.full,
-    backgroundColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sendButtonDisabled: {
-    backgroundColor: theme.colors.border,
-  },
-  sendButtonText: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.sm,
-  },
-  pressed: {
-    opacity: 0.85,
-  },
-});

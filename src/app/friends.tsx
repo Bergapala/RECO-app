@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -16,10 +16,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
 import { FriendSearchPanel } from '@/components/FriendSearchPanel';
+import { useTheme } from '@/context/ThemeContext';
 import { getCurrentUserId } from '@/lib/auth';
 import { getFriendsList, removeFriend, type FriendListItem } from '@/lib/friends';
 import { goBack } from '@/lib/navigation';
-import { theme } from '@/theme';
 
 function formatAddedAt(iso: string): string {
   return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' }).format(
@@ -28,6 +28,7 @@ function formatAddedAt(iso: string): string {
 }
 
 export default function FriendsScreen() {
+  const theme = useTheme();
   const router = useRouter();
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -73,9 +74,151 @@ export default function FriendsScreen() {
     // donc rien de plus à faire qu'à fermer le modal.
   }
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: theme.colors.background,
+        },
+        safeArea: {
+          flex: 1,
+        },
+        header: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: theme.spacing.lg,
+          paddingVertical: theme.spacing.sm,
+        },
+        headerButton: {
+          width: 32,
+          height: 32,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        title: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.lg,
+        },
+        listContent: {
+          paddingHorizontal: theme.spacing.lg,
+          paddingBottom: theme.spacing.xl,
+          flexGrow: 1,
+        },
+        friendRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: theme.spacing.sm,
+          paddingVertical: theme.spacing.sm,
+          backgroundColor: theme.colors.background,
+        },
+        avatar: {
+          width: 44,
+          height: 44,
+          borderRadius: theme.borderRadius.full,
+        },
+        avatarFallback: {
+          backgroundColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        avatarInitial: {
+          // Blanc fixe : le fond du cercle reste l'accent rouge quel que
+          // soit le mode clair/sombre.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.md,
+        },
+        friendInfo: {
+          gap: 2,
+        },
+        friendName: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontBody}_500Medium`,
+          fontSize: theme.fontSizes.md,
+        },
+        friendSince: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.xs,
+        },
+        removeAction: {
+          width: 88,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: theme.colors.error,
+        },
+        removeActionText: {
+          // Blanc fixe : le fond de cette action reste rouge erreur quel
+          // que soit le mode clair/sombre.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.sm,
+        },
+        emptyState: {
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingTop: theme.spacing.xxl,
+          gap: theme.spacing.lg,
+        },
+        emptyText: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.md,
+          textAlign: 'center',
+        },
+        emptyButton: {
+          height: 52,
+          paddingHorizontal: theme.spacing.lg,
+          borderRadius: theme.borderRadius.md,
+          backgroundColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        emptyButtonText: {
+          // Blanc fixe, pas theme.colors.text : le fond du bouton reste
+          // l'accent rouge quel que soit le mode clair/sombre.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.md,
+        },
+        pressed: {
+          opacity: 0.85,
+        },
+        modalContainer: {
+          flex: 1,
+          backgroundColor: theme.colors.background,
+        },
+        modalSafeArea: {
+          flex: 1,
+        },
+        modalHeader: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: theme.spacing.lg,
+          paddingVertical: theme.spacing.sm,
+        },
+        modalTitle: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.lg,
+        },
+        modalPanelWrapper: {
+          flex: 1,
+          paddingHorizontal: theme.spacing.lg,
+          paddingTop: theme.spacing.sm,
+        },
+      }),
+    [theme],
+  );
+
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
+      <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <Pressable onPress={() => goBack(router)} hitSlop={12} style={styles.headerButton}>
@@ -148,7 +291,7 @@ export default function FriendsScreen() {
         presentationStyle="pageSheet"
         onRequestClose={closeModal}>
         <View style={styles.modalContainer}>
-          <StatusBar style="light" />
+          <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
           <SafeAreaView style={styles.modalSafeArea}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Ajouter des amis</Text>
@@ -166,135 +309,3 @@ export default function FriendsScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
-  },
-  headerButton: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.lg,
-  },
-  listContent: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.xl,
-    flexGrow: 1,
-  },
-  friendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    paddingVertical: theme.spacing.sm,
-    backgroundColor: theme.colors.background,
-  },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: theme.borderRadius.full,
-  },
-  avatarFallback: {
-    backgroundColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarInitial: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.md,
-  },
-  friendInfo: {
-    gap: 2,
-  },
-  friendName: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_500Medium`,
-    fontSize: theme.fontSizes.md,
-  },
-  friendSince: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.xs,
-  },
-  removeAction: {
-    width: 88,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.error,
-  },
-  removeActionText: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.sm,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: theme.spacing.xxl,
-    gap: theme.spacing.lg,
-  },
-  emptyText: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.md,
-    textAlign: 'center',
-  },
-  emptyButton: {
-    height: 52,
-    paddingHorizontal: theme.spacing.lg,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyButtonText: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.md,
-  },
-  pressed: {
-    opacity: 0.85,
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  modalSafeArea: {
-    flex: 1,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
-  },
-  modalTitle: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.lg,
-  },
-  modalPanelWrapper: {
-    flex: 1,
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.sm,
-  },
-});

@@ -1,12 +1,13 @@
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
 import { RecoCard } from '@/components/RecoCard';
+import { useTheme } from '@/context/ThemeContext';
 import { useRecoReactions } from '@/hooks/use-reco-reactions';
 import { useSavedRecos } from '@/hooks/use-saved-recos';
 import { getCurrentUserId } from '@/lib/auth';
@@ -19,7 +20,6 @@ import { getFriendshipStatus, sendFriendRequest, type FriendshipStatus } from '@
 import { goBack } from '@/lib/navigation';
 import { fetchRecosByAuthor, type FeedReco } from '@/lib/recos';
 import { getUserProfile, type UserProfile } from '@/lib/users';
-import { theme } from '@/theme';
 
 const BANNER_HEIGHT = 220;
 
@@ -30,6 +30,7 @@ const overlayTextShadow = {
 };
 
 export default function FriendProfileScreen() {
+  const theme = useTheme();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
 
@@ -84,9 +85,157 @@ export default function FriendProfileScreen() {
 
   const initial = (profile?.prenom ?? '?').trim().charAt(0).toUpperCase();
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: theme.colors.background,
+        },
+        safeArea: {
+          flex: 1,
+        },
+        listContent: {
+          paddingBottom: theme.spacing.xl,
+          flexGrow: 1,
+        },
+        banner: {
+          height: BANNER_HEIGHT,
+          width: '100%',
+        },
+        bannerImage: {
+          width: '100%',
+          height: '100%',
+          resizeMode: 'cover',
+        },
+        bannerFallback: {
+          backgroundColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        bannerInitial: {
+          // Blanc fixe : le fond de repli reste l'accent rouge quel que
+          // soit le mode clair/sombre.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontTitle}_800ExtraBold`,
+          fontSize: 72,
+        },
+        bannerGradient: {
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: BANNER_HEIGHT * 0.6,
+        },
+        bannerBackButton: {
+          position: 'absolute',
+          top: theme.spacing.sm,
+          left: theme.spacing.lg,
+          width: 32,
+          height: 32,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        bannerInfo: {
+          position: 'absolute',
+          left: theme.spacing.lg,
+          bottom: theme.spacing.md,
+          gap: 2,
+        },
+        bannerName: {
+          // Blanc fixe, pas theme.colors.text : posé sur la photo de
+          // couverture (avec dégradé sombre), pas sur le fond de l'app.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.xl,
+        },
+        bannerUsername: {
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.sm,
+        },
+        header: {
+          alignItems: 'center',
+          paddingHorizontal: theme.spacing.lg,
+          paddingTop: theme.spacing.lg,
+          paddingBottom: theme.spacing.md,
+        },
+        friendButton: {
+          height: 44,
+          paddingHorizontal: theme.spacing.lg,
+          borderRadius: theme.borderRadius.md,
+          borderWidth: 1.5,
+          borderColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        friendButtonDisabled: {
+          borderColor: theme.colors.border,
+        },
+        friendButtonText: {
+          color: theme.colors.accent,
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.sm,
+        },
+        friendButtonTextDisabled: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.sm,
+        },
+        compatCard: {
+          width: '100%',
+          marginTop: theme.spacing.md,
+          backgroundColor: theme.colors.card,
+          borderRadius: theme.borderRadius.md,
+          padding: theme.spacing.sm,
+          gap: 2,
+        },
+        compatHeaderRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        },
+        compatTitle: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.sm,
+        },
+        compatScore: {
+          color: theme.colors.accent,
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.sm,
+        },
+        compatSubtitle: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.xs,
+        },
+        compatDetail: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.xs,
+        },
+        emptyState: {
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingTop: theme.spacing.xl,
+        },
+        emptyText: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.md,
+        },
+        pressed: {
+          opacity: 0.85,
+        },
+      }),
+    [theme],
+  );
+
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
+      <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
       <SafeAreaView style={styles.safeArea}>
         <FlatList
           data={recos}
@@ -112,7 +261,8 @@ export default function FriendProfileScreen() {
                   onPress={() => goBack(router)}
                   hitSlop={12}
                   style={styles.bannerBackButton}>
-                  <Feather name="arrow-left" size={22} color={theme.colors.text} />
+                  {/* Blanc fixe : posé sur la bannière, pas sur le fond de l'app. */}
+                  <Feather name="arrow-left" size={22} color="#FFFFFF" />
                 </Pressable>
 
                 <View style={styles.bannerInfo}>
@@ -189,143 +339,3 @@ export default function FriendProfileScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  listContent: {
-    paddingBottom: theme.spacing.xl,
-    flexGrow: 1,
-  },
-  banner: {
-    height: BANNER_HEIGHT,
-    width: '100%',
-  },
-  bannerImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  bannerFallback: {
-    backgroundColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bannerInitial: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_800ExtraBold`,
-    fontSize: 72,
-  },
-  bannerGradient: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: BANNER_HEIGHT * 0.6,
-  },
-  bannerBackButton: {
-    position: 'absolute',
-    top: theme.spacing.sm,
-    left: theme.spacing.lg,
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bannerInfo: {
-    position: 'absolute',
-    left: theme.spacing.lg,
-    bottom: theme.spacing.md,
-    gap: 2,
-  },
-  bannerName: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.xl,
-  },
-  bannerUsername: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.sm,
-  },
-  header: {
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.lg,
-    paddingBottom: theme.spacing.md,
-  },
-  friendButton: {
-    height: 44,
-    paddingHorizontal: theme.spacing.lg,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1.5,
-    borderColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  friendButtonDisabled: {
-    borderColor: theme.colors.border,
-  },
-  friendButtonText: {
-    color: theme.colors.accent,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.sm,
-  },
-  friendButtonTextDisabled: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.sm,
-  },
-  compatCard: {
-    width: '100%',
-    marginTop: theme.spacing.md,
-    backgroundColor: theme.colors.card,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.sm,
-    gap: 2,
-  },
-  compatHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  compatTitle: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.sm,
-  },
-  compatScore: {
-    color: theme.colors.accent,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.sm,
-  },
-  compatSubtitle: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.xs,
-  },
-  compatDetail: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.xs,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: theme.spacing.xl,
-  },
-  emptyText: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.md,
-  },
-  pressed: {
-    opacity: 0.85,
-  },
-});

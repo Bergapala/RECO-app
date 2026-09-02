@@ -1,9 +1,9 @@
 import { Redirect } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
+import { useTheme } from '@/context/ThemeContext';
 import { hasActiveSession } from '@/lib/auth';
-import { theme } from '@/theme';
 
 type Destination = '/feed' | '/login';
 
@@ -18,6 +18,7 @@ type Destination = '/feed' | '/login';
  * plusieurs fois si quelqu'un crée plusieurs comptes — c'est voulu.
  */
 export default function EntryGate() {
+  const theme = useTheme();
   const [destination, setDestination] = useState<Destination | null>(null);
 
   useEffect(() => {
@@ -34,6 +35,19 @@ export default function EntryGate() {
     };
   }, []);
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: theme.colors.background,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+      }),
+    [theme],
+  );
+
   if (destination) {
     return <Redirect href={destination} />;
   }
@@ -44,12 +58,3 @@ export default function EntryGate() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

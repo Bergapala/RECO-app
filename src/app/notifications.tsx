@@ -1,10 +1,11 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
+import { useTheme } from '@/context/ThemeContext';
 import { getCurrentUserId } from '@/lib/auth';
 import {
   acceptFriendRequest,
@@ -18,7 +19,6 @@ import {
   markAllAsRead,
   type AppNotification,
 } from '@/lib/notifications';
-import { theme } from '@/theme';
 
 function formatRelativeDate(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -39,6 +39,7 @@ function formatRelativeDate(iso: string): string {
 }
 
 export default function NotificationsScreen() {
+  const theme = useTheme();
   const router = useRouter();
 
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -98,9 +99,174 @@ export default function NotificationsScreen() {
     }
   }
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: theme.colors.background,
+        },
+        safeArea: {
+          flex: 1,
+        },
+        header: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: theme.spacing.md,
+          paddingVertical: theme.spacing.sm,
+        },
+        backButton: {
+          width: 32,
+          height: 32,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        headerTitle: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.xl,
+        },
+        listContent: {
+          flexGrow: 1,
+          paddingBottom: theme.spacing.xl,
+        },
+        requestsSection: {
+          paddingTop: theme.spacing.sm,
+          gap: theme.spacing.sm,
+        },
+        requestsTitle: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.md,
+          paddingHorizontal: theme.spacing.lg,
+        },
+        requestRow: {
+          flexDirection: 'row',
+          alignItems: 'flex-start',
+          gap: theme.spacing.sm,
+          paddingHorizontal: theme.spacing.lg,
+          paddingVertical: theme.spacing.sm,
+        },
+        requestBody: {
+          flex: 1,
+          gap: theme.spacing.sm,
+        },
+        requestText: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.sm,
+        },
+        requestName: {
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+        },
+        requestActions: {
+          flexDirection: 'row',
+          gap: theme.spacing.sm,
+        },
+        acceptButton: {
+          height: 36,
+          paddingHorizontal: theme.spacing.md,
+          borderRadius: theme.borderRadius.md,
+          backgroundColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        acceptButtonText: {
+          // Blanc fixe, pas theme.colors.text : le fond du bouton reste
+          // l'accent rouge quel que soit le mode clair/sombre.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.sm,
+        },
+        declineButton: {
+          height: 36,
+          paddingHorizontal: theme.spacing.md,
+          borderRadius: theme.borderRadius.md,
+          borderWidth: 1.5,
+          borderColor: theme.colors.error,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        declineButtonText: {
+          color: theme.colors.error,
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.sm,
+        },
+        requestsSeparator: {
+          height: StyleSheet.hairlineWidth,
+          backgroundColor: theme.colors.border,
+          marginTop: theme.spacing.sm,
+        },
+        pressed: {
+          opacity: 0.7,
+        },
+        row: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: theme.spacing.sm,
+          paddingHorizontal: theme.spacing.lg,
+          paddingVertical: theme.spacing.sm,
+          backgroundColor: theme.colors.background,
+        },
+        rowUnread: {
+          backgroundColor: theme.colors.card,
+        },
+        avatar: {
+          width: 44,
+          height: 44,
+          borderRadius: theme.borderRadius.full,
+        },
+        avatarFallback: {
+          backgroundColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        avatarInitial: {
+          // Blanc fixe : le fond du cercle reste l'accent rouge quel que
+          // soit le mode clair/sombre.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.md,
+        },
+        rowBody: {
+          flex: 1,
+          gap: 2,
+        },
+        message: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.sm,
+        },
+        date: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.xs,
+        },
+        emptyState: {
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingTop: theme.spacing.xxl,
+          gap: theme.spacing.sm,
+        },
+        emptyIcon: {
+          fontSize: 64,
+          opacity: 0.5,
+        },
+        emptyText: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.md,
+          textAlign: 'center',
+        },
+      }),
+    [theme],
+  );
+
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
+      <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <Pressable onPress={() => goBack(router)} hitSlop={12} style={styles.backButton}>
@@ -203,160 +369,3 @@ export default function NotificationsScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-  },
-  backButton: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.xl,
-  },
-  listContent: {
-    flexGrow: 1,
-    paddingBottom: theme.spacing.xl,
-  },
-  requestsSection: {
-    paddingTop: theme.spacing.sm,
-    gap: theme.spacing.sm,
-  },
-  requestsTitle: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.md,
-    paddingHorizontal: theme.spacing.lg,
-  },
-  requestRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
-  },
-  requestBody: {
-    flex: 1,
-    gap: theme.spacing.sm,
-  },
-  requestText: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.sm,
-  },
-  requestName: {
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-  },
-  requestActions: {
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-  },
-  acceptButton: {
-    height: 36,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  acceptButtonText: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.sm,
-  },
-  declineButton: {
-    height: 36,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1.5,
-    borderColor: theme.colors.error,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  declineButtonText: {
-    color: theme.colors.error,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.sm,
-  },
-  requestsSeparator: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: theme.colors.border,
-    marginTop: theme.spacing.sm,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
-    backgroundColor: theme.colors.background,
-  },
-  rowUnread: {
-    backgroundColor: theme.colors.card,
-  },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: theme.borderRadius.full,
-  },
-  avatarFallback: {
-    backgroundColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarInitial: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.md,
-  },
-  rowBody: {
-    flex: 1,
-    gap: 2,
-  },
-  message: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.sm,
-  },
-  date: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.xs,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: theme.spacing.xxl,
-    gap: theme.spacing.sm,
-  },
-  emptyIcon: {
-    fontSize: 64,
-    opacity: 0.5,
-  },
-  emptyText: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.md,
-    textAlign: 'center',
-  },
-});

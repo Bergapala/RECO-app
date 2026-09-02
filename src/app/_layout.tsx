@@ -7,6 +7,7 @@ import { StyleSheet, useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { ThemeProvider as AppThemeProvider } from '@/context/ThemeContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -34,8 +35,10 @@ export default function RootLayout() {
     // notamment sur Android.
     <GestureHandlerRootView style={styles.flexFill}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <AnimatedSplashOverlay />
-        <Slot />
+        <AppThemeProvider>
+          <AnimatedSplashOverlay />
+          <Slot />
+        </AppThemeProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
   );

@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
+import { useTheme } from '@/context/ThemeContext';
 import { getCurrentUserId } from '@/lib/auth';
 import { uploadProfilePhoto } from '@/lib/storage';
 import {
@@ -27,11 +28,11 @@ import {
   updatePrenom,
   updateUsername,
 } from '@/lib/users';
-import { theme } from '@/theme';
 
 type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid';
 
 export default function CompleteProfileScreen() {
+  const theme = useTheme();
   const router = useRouter();
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -85,6 +86,151 @@ export default function CompleteProfileScreen() {
       clearTimeout(timeout);
     };
   }, [username, currentUserId]);
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: theme.colors.background,
+        },
+        safeArea: {
+          flex: 1,
+        },
+        flexFill: {
+          flex: 1,
+        },
+        content: {
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingHorizontal: theme.spacing.lg,
+          gap: theme.spacing.sm,
+          maxWidth: 420,
+          alignSelf: 'center',
+          width: '100%',
+        },
+        title: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.xl,
+          textAlign: 'center',
+        },
+        subtitle: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.sm,
+          textAlign: 'center',
+          marginBottom: theme.spacing.md,
+        },
+        avatarWrapper: {
+          width: 80,
+          height: 80,
+        },
+        avatar: {
+          width: 80,
+          height: 80,
+          borderRadius: theme.borderRadius.full,
+        },
+        avatarFallback: {
+          backgroundColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        avatarInitial: {
+          // Blanc fixe : le fond du cercle reste l'accent rouge quel que
+          // soit le mode clair/sombre.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.xl,
+        },
+        avatarEditBadge: {
+          position: 'absolute',
+          bottom: 0,
+          right: 0,
+          width: 26,
+          height: 26,
+          borderRadius: theme.borderRadius.full,
+          backgroundColor: theme.colors.accent,
+          borderWidth: 2,
+          borderColor: theme.colors.background,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        avatarHint: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.xs,
+          marginBottom: theme.spacing.lg,
+        },
+        field: {
+          width: '100%',
+          gap: theme.spacing.xs,
+        },
+        fieldLabel: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_500Medium`,
+          fontSize: theme.fontSizes.xs,
+        },
+        input: {
+          height: 52,
+          borderRadius: theme.borderRadius.md,
+          backgroundColor: theme.colors.card,
+          paddingHorizontal: theme.spacing.md,
+          color: theme.colors.text,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.md,
+        },
+        usernameInputRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: theme.spacing.xs,
+          height: 52,
+          borderRadius: theme.borderRadius.md,
+          backgroundColor: theme.colors.card,
+          paddingHorizontal: theme.spacing.md,
+        },
+        usernamePrefix: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_500Medium`,
+          fontSize: theme.fontSizes.md,
+        },
+        usernameInput: {
+          flex: 1,
+          color: theme.colors.text,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.md,
+        },
+        usernameHintError: {
+          color: theme.colors.error,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.xs,
+        },
+        primaryButton: {
+          width: '100%',
+          height: 52,
+          borderRadius: theme.borderRadius.md,
+          backgroundColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginTop: theme.spacing.md,
+        },
+        primaryButtonDisabled: {
+          backgroundColor: theme.colors.border,
+        },
+        primaryButtonText: {
+          // Blanc fixe, pas theme.colors.text : le fond du bouton reste
+          // l'accent rouge quel que soit le mode clair/sombre.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.md,
+        },
+        primaryButtonTextDisabled: {
+          color: theme.colors.muted,
+        },
+      }),
+    [theme],
+  );
 
   async function handlePickPhoto() {
     if (!currentUserId) return;
@@ -151,7 +297,9 @@ export default function CompleteProfileScreen() {
                 </View>
               )}
               <View style={styles.avatarEditBadge}>
-                <Feather name="camera" size={14} color={theme.colors.text} />
+                {/* Blanc fixe : le badge reste sur fond accent rouge quel
+                    que soit le mode clair/sombre. */}
+                <Feather name="camera" size={14} color="#FFFFFF" />
               </View>
             </Pressable>
             <Text style={styles.avatarHint}>
@@ -234,140 +382,3 @@ export default function CompleteProfileScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  flexFill: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    gap: theme.spacing.sm,
-    maxWidth: 420,
-    alignSelf: 'center',
-    width: '100%',
-  },
-  title: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.xl,
-    textAlign: 'center',
-  },
-  subtitle: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.sm,
-    textAlign: 'center',
-    marginBottom: theme.spacing.md,
-  },
-  avatarWrapper: {
-    width: 80,
-    height: 80,
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: theme.borderRadius.full,
-  },
-  avatarFallback: {
-    backgroundColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarInitial: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.xl,
-  },
-  avatarEditBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 26,
-    height: 26,
-    borderRadius: theme.borderRadius.full,
-    backgroundColor: theme.colors.accent,
-    borderWidth: 2,
-    borderColor: theme.colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarHint: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.xs,
-    marginBottom: theme.spacing.lg,
-  },
-  field: {
-    width: '100%',
-    gap: theme.spacing.xs,
-  },
-  fieldLabel: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_500Medium`,
-    fontSize: theme.fontSizes.xs,
-  },
-  input: {
-    height: 52,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.card,
-    paddingHorizontal: theme.spacing.md,
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.md,
-  },
-  usernameInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
-    height: 52,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.card,
-    paddingHorizontal: theme.spacing.md,
-  },
-  usernamePrefix: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_500Medium`,
-    fontSize: theme.fontSizes.md,
-  },
-  usernameInput: {
-    flex: 1,
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.md,
-  },
-  usernameHintError: {
-    color: theme.colors.error,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.xs,
-  },
-  primaryButton: {
-    width: '100%',
-    height: 52,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: theme.spacing.md,
-  },
-  primaryButtonDisabled: {
-    backgroundColor: theme.colors.border,
-  },
-  primaryButtonText: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.md,
-  },
-  primaryButtonTextDisabled: {
-    color: theme.colors.muted,
-  },
-});

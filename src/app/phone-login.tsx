@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -13,9 +13,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
+import { useTheme } from '@/context/ThemeContext';
 import { getCurrentUserId, sendPhoneOtp, verifyPhoneOtp } from '@/lib/auth';
 import { getUserProfile } from '@/lib/users';
-import { theme } from '@/theme';
 
 /** Format E.164 minimal : + suivi de 8 à 15 chiffres. */
 function isValidE164(value: string): boolean {
@@ -23,6 +23,7 @@ function isValidE164(value: string): boolean {
 }
 
 export default function PhoneLoginScreen() {
+  const theme = useTheme();
   const router = useRouter();
 
   const [step, setStep] = useState<'phone' | 'code'>('phone');
@@ -30,6 +31,85 @@ export default function PhoneLoginScreen() {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: theme.colors.background,
+        },
+        safeArea: {
+          flex: 1,
+        },
+        flexFill: {
+          flex: 1,
+        },
+        header: {
+          paddingHorizontal: theme.spacing.md,
+          paddingVertical: theme.spacing.sm,
+        },
+        backButton: {
+          width: 32,
+          height: 32,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        content: {
+          flex: 1,
+          justifyContent: 'center',
+          paddingHorizontal: theme.spacing.lg,
+          gap: theme.spacing.md,
+          maxWidth: 420,
+          alignSelf: 'center',
+          width: '100%',
+        },
+        title: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.xl,
+        },
+        subtitle: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.sm,
+          marginBottom: theme.spacing.sm,
+        },
+        input: {
+          height: 52,
+          borderRadius: theme.borderRadius.md,
+          backgroundColor: theme.colors.card,
+          paddingHorizontal: theme.spacing.md,
+          color: theme.colors.text,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.md,
+        },
+        errorText: {
+          color: theme.colors.error,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.xs,
+        },
+        primaryButton: {
+          height: 52,
+          borderRadius: theme.borderRadius.md,
+          backgroundColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginTop: theme.spacing.sm,
+        },
+        primaryButtonDisabled: {
+          backgroundColor: theme.colors.border,
+        },
+        primaryButtonText: {
+          // Blanc fixe, pas theme.colors.text : le fond du bouton reste
+          // l'accent rouge quel que soit le mode clair/sombre.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.md,
+        },
+      }),
+    [theme],
+  );
 
   async function handleSendCode() {
     if (loading) return;
@@ -156,76 +236,3 @@ export default function PhoneLoginScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  flexFill: {
-    flex: 1,
-  },
-  header: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-  },
-  backButton: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    gap: theme.spacing.md,
-    maxWidth: 420,
-    alignSelf: 'center',
-    width: '100%',
-  },
-  title: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.xl,
-  },
-  subtitle: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.sm,
-    marginBottom: theme.spacing.sm,
-  },
-  input: {
-    height: 52,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.card,
-    paddingHorizontal: theme.spacing.md,
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.md,
-  },
-  errorText: {
-    color: theme.colors.error,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.xs,
-  },
-  primaryButton: {
-    height: 52,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: theme.spacing.sm,
-  },
-  primaryButtonDisabled: {
-    backgroundColor: theme.colors.border,
-  },
-  primaryButtonText: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.md,
-  },
-});

@@ -1,20 +1,20 @@
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
 import { BottomTabBar, FLOATING_NAV_CLEARANCE } from '@/components/BottomTabBar';
 import { RecoCard } from '@/components/RecoCard';
+import { useTheme } from '@/context/ThemeContext';
 import { useRecoReactions } from '@/hooks/use-reco-reactions';
 import { useSavedRecos } from '@/hooks/use-saved-recos';
 import { getCurrentUserId } from '@/lib/auth';
 import { fetchRecosByAuthor, type FeedReco } from '@/lib/recos';
 import { getSavedRecoCount } from '@/lib/saved';
 import { getProfileStats, getUserProfile, type ProfileStats, type UserProfile } from '@/lib/users';
-import { theme } from '@/theme';
 
 const BANNER_HEIGHT = 220;
 
@@ -25,6 +25,7 @@ const overlayTextShadow = {
 };
 
 export default function ProfileScreen() {
+  const theme = useTheme();
   const router = useRouter();
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -58,9 +59,163 @@ export default function ProfileScreen() {
 
   const initial = (profile?.prenom ?? '?').trim().charAt(0).toUpperCase();
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: theme.colors.background,
+        },
+        safeArea: {
+          flex: 1,
+        },
+        listContent: {
+          paddingBottom: FLOATING_NAV_CLEARANCE,
+          flexGrow: 1,
+        },
+        banner: {
+          height: BANNER_HEIGHT,
+          width: '100%',
+        },
+        bannerImage: {
+          width: '100%',
+          height: '100%',
+          resizeMode: 'cover',
+        },
+        bannerFallback: {
+          backgroundColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        bannerInitial: {
+          // Blanc fixe : le fond de repli reste l'accent rouge quel que
+          // soit le mode clair/sombre.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontTitle}_800ExtraBold`,
+          fontSize: 72,
+        },
+        bannerGradient: {
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: BANNER_HEIGHT * 0.6,
+        },
+        bannerBackButton: {
+          position: 'absolute',
+          top: theme.spacing.sm,
+          left: theme.spacing.lg,
+          width: 32,
+          height: 32,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        bannerSettingsButton: {
+          position: 'absolute',
+          top: theme.spacing.sm,
+          right: theme.spacing.lg,
+          width: 32,
+          height: 32,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        bannerInfo: {
+          position: 'absolute',
+          left: theme.spacing.lg,
+          bottom: theme.spacing.md,
+          gap: 2,
+        },
+        bannerName: {
+          // Blanc fixe, pas theme.colors.text : posé sur la photo de
+          // couverture (avec dégradé sombre), pas sur le fond de l'app —
+          // doit rester lisible dans les deux modes.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.xl,
+        },
+        bannerUsername: {
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.sm,
+        },
+        header: {
+          paddingHorizontal: theme.spacing.lg,
+          paddingTop: theme.spacing.lg,
+          paddingBottom: theme.spacing.md,
+          gap: theme.spacing.md,
+        },
+        statsRow: {
+          flexDirection: 'row',
+          justifyContent: 'center',
+          gap: theme.spacing.xl,
+        },
+        statBlock: {
+          alignItems: 'center',
+        },
+        statNumber: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.xxl,
+        },
+        statLabel: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.xs,
+          marginTop: 2,
+        },
+        savedBanner: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: theme.spacing.sm,
+          backgroundColor: theme.colors.card,
+          borderRadius: theme.borderRadius.md,
+          padding: theme.spacing.md,
+        },
+        savedBannerText: {
+          flex: 1,
+          color: theme.colors.text,
+          fontFamily: `${theme.fontBody}_500Medium`,
+          fontSize: theme.fontSizes.sm,
+        },
+        emptyState: {
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingHorizontal: theme.spacing.lg,
+          paddingTop: theme.spacing.xl,
+          gap: theme.spacing.lg,
+        },
+        emptyText: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.md,
+          textAlign: 'center',
+        },
+        emptyButton: {
+          height: 52,
+          paddingHorizontal: theme.spacing.lg,
+          borderRadius: theme.borderRadius.md,
+          backgroundColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        emptyButtonText: {
+          // Blanc fixe, pas theme.colors.text : le fond du bouton reste
+          // l'accent rouge quel que soit le mode clair/sombre.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.md,
+        },
+        pressed: {
+          opacity: 0.85,
+        },
+      }),
+    [theme],
+  );
+
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
+      <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <FlatList
           data={recos}
@@ -86,14 +241,15 @@ export default function ProfileScreen() {
                   onPress={() => router.back()}
                   hitSlop={12}
                   style={styles.bannerBackButton}>
-                  <Feather name="arrow-left" size={22} color={theme.colors.text} />
+                  {/* Blanc fixe : posé sur la bannière, pas sur le fond de l'app. */}
+                  <Feather name="arrow-left" size={22} color="#FFFFFF" />
                 </Pressable>
 
                 <Pressable
                   onPress={() => router.push('/settings')}
                   hitSlop={12}
                   style={styles.bannerSettingsButton}>
-                  <Feather name="settings" size={22} color={theme.colors.text} />
+                  <Feather name="settings" size={22} color="#FFFFFF" />
                 </Pressable>
 
                 <View style={styles.bannerInfo}>
@@ -171,146 +327,3 @@ export default function ProfileScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  listContent: {
-    paddingBottom: FLOATING_NAV_CLEARANCE,
-    flexGrow: 1,
-  },
-  banner: {
-    height: BANNER_HEIGHT,
-    width: '100%',
-  },
-  bannerImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  bannerFallback: {
-    backgroundColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bannerInitial: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_800ExtraBold`,
-    fontSize: 72,
-  },
-  bannerGradient: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: BANNER_HEIGHT * 0.6,
-  },
-  bannerBackButton: {
-    position: 'absolute',
-    top: theme.spacing.sm,
-    left: theme.spacing.lg,
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bannerSettingsButton: {
-    position: 'absolute',
-    top: theme.spacing.sm,
-    right: theme.spacing.lg,
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bannerInfo: {
-    position: 'absolute',
-    left: theme.spacing.lg,
-    bottom: theme.spacing.md,
-    gap: 2,
-  },
-  bannerName: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.xl,
-  },
-  bannerUsername: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.sm,
-  },
-  header: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.lg,
-    paddingBottom: theme.spacing.md,
-    gap: theme.spacing.md,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: theme.spacing.xl,
-  },
-  statBlock: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontTitle}_700Bold`,
-    fontSize: theme.fontSizes.xxl,
-  },
-  statLabel: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.xs,
-    marginTop: 2,
-  },
-  savedBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    backgroundColor: theme.colors.card,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
-  },
-  savedBannerText: {
-    flex: 1,
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_500Medium`,
-    fontSize: theme.fontSizes.sm,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.xl,
-    gap: theme.spacing.lg,
-  },
-  emptyText: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.md,
-    textAlign: 'center',
-  },
-  emptyButton: {
-    height: 52,
-    paddingHorizontal: theme.spacing.lg,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyButtonText: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.md,
-  },
-  pressed: {
-    opacity: 0.85,
-  },
-});

@@ -1,12 +1,13 @@
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
 import { BottomTabBar, FLOATING_NAV_CLEARANCE } from '@/components/BottomTabBar';
 import { RecoCard } from '@/components/RecoCard';
+import { useTheme } from '@/context/ThemeContext';
 import { useRecoReactions } from '@/hooks/use-reco-reactions';
 import { useSavedRecos } from '@/hooks/use-saved-recos';
 import { getCurrentUserId } from '@/lib/auth';
@@ -14,9 +15,9 @@ import { shareInvite } from '@/lib/invite';
 import { getUnreadCount, subscribeToNotifications } from '@/lib/notifications';
 import { fetchFeedRecos, type FeedReco } from '@/lib/recos';
 import { getProfileStats } from '@/lib/users';
-import { theme } from '@/theme';
 
 export default function FeedScreen() {
+  const theme = useTheme();
   const router = useRouter();
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -74,9 +75,113 @@ export default function FeedScreen() {
     setRefreshing(false);
   }
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: theme.colors.background,
+        },
+        safeArea: {
+          flex: 1,
+        },
+        topBar: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: theme.spacing.lg,
+          paddingVertical: theme.spacing.sm,
+        },
+        logo: {
+          color: theme.colors.accent,
+          fontFamily: `${theme.fontTitle}_800ExtraBold`,
+          fontSize: theme.fontSizes.xl,
+          letterSpacing: 1,
+        },
+        bellButton: {
+          width: 32,
+          height: 32,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        badge: {
+          position: 'absolute',
+          top: 4,
+          right: 4,
+          width: 9,
+          height: 9,
+          borderRadius: theme.borderRadius.full,
+          backgroundColor: theme.colors.error,
+          borderWidth: 1.5,
+          borderColor: theme.colors.background,
+        },
+        listContent: {
+          paddingTop: theme.spacing.sm,
+          paddingBottom: FLOATING_NAV_CLEARANCE,
+          flexGrow: 1,
+        },
+        emptyState: {
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingHorizontal: theme.spacing.lg,
+          paddingTop: theme.spacing.xxl,
+          gap: theme.spacing.lg,
+        },
+        emptyIcon: {
+          fontSize: 56,
+          opacity: 0.6,
+        },
+        emptyText: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.md,
+          textAlign: 'center',
+        },
+        emptyButton: {
+          height: 52,
+          paddingHorizontal: theme.spacing.lg,
+          borderRadius: theme.borderRadius.md,
+          backgroundColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        emptyButtonText: {
+          // Blanc fixe, pas theme.colors.text : le fond du bouton reste
+          // l'accent rouge quel que soit le mode clair/sombre.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.md,
+        },
+        emptySecondaryButton: {
+          height: 52,
+          paddingHorizontal: theme.spacing.lg,
+          borderRadius: theme.borderRadius.md,
+          borderWidth: 1.5,
+          borderColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        emptySecondaryButtonText: {
+          color: theme.colors.accent,
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.md,
+        },
+        emptySkipText: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_500Medium`,
+          fontSize: theme.fontSizes.sm,
+        },
+        pressed: {
+          opacity: 0.85,
+        },
+      }),
+    [theme],
+  );
+
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
+      <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.topBar}>
           <Text style={styles.logo}>RECO</Text>
@@ -159,101 +264,3 @@ export default function FeedScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
-  },
-  logo: {
-    color: theme.colors.accent,
-    fontFamily: `${theme.fontTitle}_800ExtraBold`,
-    fontSize: theme.fontSizes.xl,
-    letterSpacing: 1,
-  },
-  bellButton: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badge: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 9,
-    height: 9,
-    borderRadius: theme.borderRadius.full,
-    backgroundColor: theme.colors.error,
-    borderWidth: 1.5,
-    borderColor: theme.colors.background,
-  },
-  listContent: {
-    paddingTop: theme.spacing.sm,
-    paddingBottom: FLOATING_NAV_CLEARANCE,
-    flexGrow: 1,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.xxl,
-    gap: theme.spacing.lg,
-  },
-  emptyIcon: {
-    fontSize: 56,
-    opacity: 0.6,
-  },
-  emptyText: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_400Regular`,
-    fontSize: theme.fontSizes.md,
-    textAlign: 'center',
-  },
-  emptyButton: {
-    height: 52,
-    paddingHorizontal: theme.spacing.lg,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyButtonText: {
-    color: theme.colors.text,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.md,
-  },
-  emptySecondaryButton: {
-    height: 52,
-    paddingHorizontal: theme.spacing.lg,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1.5,
-    borderColor: theme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptySecondaryButtonText: {
-    color: theme.colors.accent,
-    fontFamily: `${theme.fontBody}_600SemiBold`,
-    fontSize: theme.fontSizes.md,
-  },
-  emptySkipText: {
-    color: theme.colors.muted,
-    fontFamily: `${theme.fontBody}_500Medium`,
-    fontSize: theme.fontSizes.sm,
-  },
-  pressed: {
-    opacity: 0.85,
-  },
-});
