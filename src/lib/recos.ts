@@ -1,3 +1,4 @@
+import { getBlockedUserIds } from '@/lib/blocks';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 export type NewReco = {
@@ -89,21 +90,31 @@ async function getAcceptedFriendIds(userId: string): Promise<string[]> {
  * Charge le feed : les recos des amis acceptés de `currentUserId` (pas les
  * siennes), triées par date décroissante, avec auteur et compteurs de
  * réactions.
+ *
+ * Exclut les recos des utilisateurs bloqués — dans les deux sens : que
+ * `currentUserId` ait bloqué l'auteur, ou que l'auteur l'ait bloqué (voir
+ * getBlockedUserIds, symétrique). En pratique, bloquer quelqu'un supprime
+ * déjà la relation d'amitié (trigger SQL), donc ce filtre est surtout une
+ * défense en profondeur plutôt que le seul mécanisme d'exclusion.
  */
 export async function fetchFeedRecos(currentUserId: string | null): Promise<FeedReco[]> {
   if (!isSupabaseConfigured || !currentUserId) {
     return [];
   }
 
-  const friendIds = await getAcceptedFriendIds(currentUserId);
-  if (friendIds.length === 0) {
+  const [friendIds, blockedIds] = await Promise.all([
+    getAcceptedFriendIds(currentUserId),
+    getBlockedUserIds(currentUserId),
+  ]);
+  const visibleFriendIds = friendIds.filter((id) => !blockedIds.includes(id));
+  if (visibleFriendIds.length === 0) {
     return [];
   }
 
   const { data, error } = await supabase
     .from('recos')
     .select(RECO_SELECT)
-    .in('user_id', friendIds)
+    .in('user_id', visibleFriendIds)
     .order('created_at', { ascending: false });
 
   if (error || !data) {

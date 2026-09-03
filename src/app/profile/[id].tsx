@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
@@ -11,6 +11,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useRecoReactions } from '@/hooks/use-reco-reactions';
 import { useSavedRecos } from '@/hooks/use-saved-recos';
 import { getCurrentUserId } from '@/lib/auth';
+import { blockUser, isBlockedEitherWay } from '@/lib/blocks';
 import {
   getCompatibilityScore,
   getCompatibilitySubtitle,
@@ -41,6 +42,8 @@ export default function FriendProfileScreen() {
   const [sendingRequest, setSendingRequest] = useState(false);
   const [recos, setRecos] = useState<FeedReco[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
 
   const { onToggleLike, onToggleDiscovered } = useRecoReactions(setRecos, currentUserId);
   const { onToggleSave } = useSavedRecos(setRecos, currentUserId);
@@ -50,6 +53,21 @@ export default function FriendProfileScreen() {
 
     getCurrentUserId().then(async (userId) => {
       setCurrentUserId(userId);
+
+      // Un profil bloqué (dans un sens ou dans l'autre) n'est plus
+      // consultable — on s'arrête là sans même charger ses recos, sa
+      // compatibilité, etc. (voir le rendu "isBlocked" plus bas). En
+      // pratique cet écran ne devrait plus être atteignable pour un
+      // utilisateur bloqué (feed/recherche/amis l'excluent déjà), mais un
+      // lien direct reste possible.
+      if (userId) {
+        const blocked = await isBlockedEitherWay(userId, id);
+        if (blocked) {
+          setIsBlocked(true);
+          setLoading(false);
+          return;
+        }
+      }
 
       const [userProfile, theirRecos] = await Promise.all([
         getUserProfile(id),
@@ -81,6 +99,42 @@ export default function FriendProfileScreen() {
     if (!error) {
       setFriendshipStatus('pending');
     }
+  }
+
+  function handleBlock() {
+    setMenuVisible(false);
+
+    const name = profile?.prenom ?? 'cet utilisateur';
+    Alert.alert(
+      `Si tu bloques ${name}, vous ne verrez plus vos contenus respectifs`,
+      undefined,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Bloquer', style: 'destructive', onPress: confirmBlock },
+      ],
+    );
+  }
+
+  async function confirmBlock() {
+    if (!currentUserId || !id) return;
+
+    const { error } = await blockUser(currentUserId, id);
+    if (error) {
+      Alert.alert('Erreur', error);
+      return;
+    }
+
+    // Le profil n'est plus consultable une fois bloqué — retour à l'écran
+    // précédent plutôt que de rester sur une page devenue obsolète.
+    goBack(router);
+  }
+
+  function handleReportProfile() {
+    setMenuVisible(false);
+    // Volontairement une simple confirmation, sans modal de raisons ni
+    // écriture en base (contrairement au signalement d'une reco) — voir
+    // src/app/reco/[id].tsx pour ce flux plus détaillé.
+    Alert.alert('Profil signalé, merci');
   }
 
   const initial = (profile?.prenom ?? '?').trim().charAt(0).toUpperCase();
@@ -131,6 +185,15 @@ export default function FriendProfileScreen() {
           position: 'absolute',
           top: theme.spacing.sm,
           left: theme.spacing.lg,
+          width: 32,
+          height: 32,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        bannerMoreButton: {
+          position: 'absolute',
+          top: theme.spacing.sm,
+          right: theme.spacing.lg,
           width: 32,
           height: 32,
           alignItems: 'center',
@@ -226,12 +289,84 @@ export default function FriendProfileScreen() {
           fontFamily: `${theme.fontBody}_400Regular`,
           fontSize: theme.fontSizes.md,
         },
+        moreMenu: {
+          position: 'absolute',
+          top: theme.spacing.sm + 32 + theme.spacing.xs,
+          right: theme.spacing.lg,
+          minWidth: 200,
+          backgroundColor: theme.colors.card,
+          borderRadius: theme.borderRadius.md,
+          paddingVertical: theme.spacing.xs,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.2,
+          shadowRadius: 12,
+          elevation: 8,
+        },
+        moreMenuItem: {
+          paddingHorizontal: theme.spacing.md,
+          paddingVertical: theme.spacing.sm,
+        },
+        moreMenuItemText: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.sm,
+        },
+        moreMenuItemTextDestructive: {
+          color: theme.colors.error,
+        },
+        moreMenuSeparator: {
+          height: StyleSheet.hairlineWidth,
+          backgroundColor: theme.colors.border,
+        },
+        blockedHeader: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: theme.spacing.md,
+          paddingVertical: theme.spacing.sm,
+        },
+        blockedBackButton: {
+          width: 32,
+          height: 32,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        blockedState: {
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingHorizontal: theme.spacing.lg,
+        },
+        blockedText: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.md,
+          textAlign: 'center',
+        },
         pressed: {
           opacity: 0.85,
         },
       }),
     [theme],
   );
+
+  if (isBlocked) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.blockedHeader}>
+            <Pressable onPress={() => goBack(router)} hitSlop={12} style={styles.blockedBackButton}>
+              <Feather name="arrow-left" size={22} color={theme.colors.text} />
+            </Pressable>
+          </View>
+          <View style={styles.blockedState}>
+            <Text style={styles.blockedText}>Ce profil n&rsquo;est plus disponible.</Text>
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -263,6 +398,13 @@ export default function FriendProfileScreen() {
                   style={styles.bannerBackButton}>
                   {/* Blanc fixe : posé sur la bannière, pas sur le fond de l'app. */}
                   <Feather name="arrow-left" size={22} color="#FFFFFF" />
+                </Pressable>
+
+                <Pressable
+                  onPress={() => setMenuVisible(true)}
+                  hitSlop={12}
+                  style={styles.bannerMoreButton}>
+                  <Feather name="more-horizontal" size={22} color="#FFFFFF" />
                 </Pressable>
 
                 <View style={styles.bannerInfo}>
@@ -335,6 +477,27 @@ export default function FriendProfileScreen() {
             ) : null
           }
         />
+
+        {menuVisible && (
+          <>
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenuVisible(false)} />
+            <View style={styles.moreMenu}>
+              <Pressable
+                onPress={handleBlock}
+                style={({ pressed }) => [styles.moreMenuItem, pressed && styles.pressed]}>
+                <Text style={[styles.moreMenuItemText, styles.moreMenuItemTextDestructive]}>
+                  Bloquer {profile?.prenom ?? 'cet utilisateur'}
+                </Text>
+              </Pressable>
+              <View style={styles.moreMenuSeparator} />
+              <Pressable
+                onPress={handleReportProfile}
+                style={({ pressed }) => [styles.moreMenuItem, pressed && styles.pressed]}>
+                <Text style={styles.moreMenuItemText}>Signaler ce profil</Text>
+              </Pressable>
+            </View>
+          </>
+        )}
       </SafeAreaView>
     </View>
   );

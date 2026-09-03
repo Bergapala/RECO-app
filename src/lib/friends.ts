@@ -1,3 +1,4 @@
+import { getBlockedUserIds } from '@/lib/blocks';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 export type UserSearchResult = {
@@ -21,6 +22,10 @@ export type UserSearchResult = {
  * Nécessite que la policy RLS de `public.users` autorise un utilisateur
  * authentifié à lire les profils des autres (voir la migration
  * users_searchable) — sans ça, cette recherche renverra toujours 0 résultat.
+ *
+ * Exclut aussi les utilisateurs bloqués — dans les deux sens — pour qu'on
+ * ne puisse ni retrouver quelqu'un qu'on a bloqué, ni être retrouvé par
+ * quelqu'un qui nous a bloqués (voir src/lib/blocks.ts).
  */
 export async function searchUsersByName(
   query: string,
@@ -48,12 +53,19 @@ export async function searchUsersByName(
     return [];
   }
 
-  return data.map((row) => ({
+  const results = data.map((row) => ({
     id: row.id,
     prenom: row.prenom,
     photoUrl: row.photo_url,
     username: row.username,
   }));
+
+  if (!currentUserId) return results;
+
+  const blockedIds = await getBlockedUserIds(currentUserId);
+  if (blockedIds.length === 0) return results;
+
+  return results.filter((user) => !blockedIds.includes(user.id));
 }
 
 export type SendFriendRequestResult = { error: string | null };

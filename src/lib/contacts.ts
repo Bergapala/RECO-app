@@ -1,5 +1,6 @@
 import * as Contacts from 'expo-contacts';
 
+import { getBlockedUserIds } from '@/lib/blocks';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 export type ContactMatch = {
@@ -48,10 +49,18 @@ export async function findContactsOnReco(
 
   if (error || !usersWithPhone) return [];
 
+  // Exclut les utilisateurs bloqués — dans les deux sens — pour cohérence
+  // avec searchUsersByName (voir src/lib/friends.ts) : la synchronisation
+  // des contacts est un autre chemin vers le même flux d'ajout d'amis.
+  const blockedIds = currentUserId ? await getBlockedUserIds(currentUserId) : [];
+
   return usersWithPhone
     .filter(
       (user) =>
-        user.id !== currentUserId && user.phone && phones.has(normalizePhone(user.phone)),
+        user.id !== currentUserId &&
+        user.phone &&
+        phones.has(normalizePhone(user.phone)) &&
+        !blockedIds.includes(user.id),
     )
     .map((user) => ({ id: user.id, prenom: user.prenom, photoUrl: user.photo_url }));
 }

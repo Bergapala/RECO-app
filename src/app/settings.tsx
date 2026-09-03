@@ -19,6 +19,7 @@ import { StatusBar } from 'expo-status-bar';
 
 import { useTheme } from '@/context/ThemeContext';
 import { deleteAccount, getCurrentUserId, signOut } from '@/lib/auth';
+import { getBlockedUsersList, unblockUser, type BlockedUser } from '@/lib/blocks';
 import { goBack } from '@/lib/navigation';
 import { registerForPushNotifications } from '@/lib/push';
 import { uploadProfilePhoto } from '@/lib/storage';
@@ -65,15 +66,19 @@ export default function SettingsScreen() {
 
   const [deletingAccount, setDeletingAccount] = useState(false);
 
+  const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
+  const [unblockingId, setUnblockingId] = useState<string | null>(null);
+
   const hasLoadedRef = useRef(false);
 
   useEffect(() => {
     getCurrentUserId().then(async (userId) => {
       setCurrentUserId(userId);
       if (userId) {
-        const [profile, prefs] = await Promise.all([
+        const [profile, prefs, blocked] = await Promise.all([
           getUserProfile(userId),
           getNotificationPrefs(userId),
+          getBlockedUsersList(userId),
         ]);
         setPrenom(profile?.prenom ?? '');
         setPhotoUrl(profile?.photoUrl ?? null);
@@ -82,6 +87,7 @@ export default function SettingsScreen() {
         setNotifHour(prefs.notifHour);
         setNotifReactions(prefs.notifReactions);
         setNotifNewRecos(prefs.notifNewRecos);
+        setBlockedUsers(blocked);
       }
       hasLoadedRef.current = true;
     });
@@ -158,6 +164,21 @@ export default function SettingsScreen() {
 
   function handleToggleDarkMode(value: boolean) {
     theme.setMode(value ? 'dark' : 'light');
+  }
+
+  async function handleUnblock(userId: string) {
+    if (!currentUserId || unblockingId) return;
+
+    setUnblockingId(userId);
+    const { error } = await unblockUser(currentUserId, userId);
+    setUnblockingId(null);
+
+    if (error) {
+      Alert.alert('Erreur', error);
+      return;
+    }
+
+    setBlockedUsers((current) => current.filter((user) => user.id !== userId));
   }
 
   async function handleSignOut() {
@@ -352,6 +373,48 @@ export default function SettingsScreen() {
           // sélectionnée reste l'accent rouge quel que soit le mode.
           color: '#FFFFFF',
         },
+        blockedEmptyText: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.sm,
+        },
+        blockedRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: theme.spacing.sm,
+        },
+        blockedAvatar: {
+          width: 40,
+          height: 40,
+          borderRadius: theme.borderRadius.full,
+        },
+        blockedAvatarInitial: {
+          // Blanc fixe : le fond du cercle reste l'accent rouge quel que
+          // soit le mode clair/sombre.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.sm,
+        },
+        blockedName: {
+          flex: 1,
+          color: theme.colors.text,
+          fontFamily: `${theme.fontBody}_500Medium`,
+          fontSize: theme.fontSizes.sm,
+        },
+        unblockButton: {
+          height: 36,
+          paddingHorizontal: theme.spacing.md,
+          borderRadius: theme.borderRadius.md,
+          borderWidth: 1.5,
+          borderColor: theme.colors.border,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        unblockButtonText: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.xs,
+        },
         signOutButton: {
           height: 52,
           alignItems: 'center',
@@ -512,6 +575,40 @@ export default function SettingsScreen() {
                 thumbColor="#FFFFFF"
               />
             </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Utilisateurs bloqués</Text>
+
+            {blockedUsers.length === 0 ? (
+              <Text style={styles.blockedEmptyText}>Aucun utilisateur bloqué</Text>
+            ) : (
+              blockedUsers.map((user) => {
+                const initial = (user.prenom ?? '?').trim().charAt(0).toUpperCase();
+                return (
+                  <View key={user.id} style={styles.blockedRow}>
+                    {user.photoUrl ? (
+                      <Image source={{ uri: user.photoUrl }} style={styles.blockedAvatar} />
+                    ) : (
+                      <View style={[styles.blockedAvatar, styles.avatarFallback]}>
+                        <Text style={styles.blockedAvatarInitial}>{initial}</Text>
+                      </View>
+                    )}
+                    <Text style={styles.blockedName}>{user.prenom ?? 'Sans nom'}</Text>
+                    <Pressable
+                      onPress={() => handleUnblock(user.id)}
+                      disabled={unblockingId === user.id}
+                      style={({ pressed }) => [styles.unblockButton, pressed && styles.pressed]}>
+                      {unblockingId === user.id ? (
+                        <ActivityIndicator size="small" color={theme.colors.text} />
+                      ) : (
+                        <Text style={styles.unblockButtonText}>Débloquer</Text>
+                      )}
+                    </Pressable>
+                  </View>
+                );
+              })
+            )}
           </View>
 
           <Pressable
