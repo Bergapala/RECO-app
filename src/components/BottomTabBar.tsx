@@ -100,11 +100,11 @@ export function BottomTabBar({ active }: BottomTabBarProps) {
           overflow: 'hidden',
         },
         tint: {
-          // Cette pilule flottante garde volontairement un fond sombre fixe
-          // (verre teinté) quel que soit le mode clair/sombre de l'app —
-          // c'est pourquoi son contenu (icônes, initiale) ci-dessous reste
-          // en couleurs claires fixes plutôt que theme.colors.text.
-          backgroundColor: 'rgba(28, 28, 28, 0.85)',
+          // Suit le thème actif : verre teinté clair en mode clair, sombre
+          // en mode sombre — basé sur theme.colors.card comme le reste des
+          // fonds "carte" de l'app, juste avec de l'opacité pour l'effet
+          // de verre par-dessus le contenu qui scrolle en dessous.
+          backgroundColor: theme.withOpacity(theme.colors.card, 0.85),
         },
         content: {
           flexDirection: 'row',
@@ -122,7 +122,10 @@ export function BottomTabBar({ active }: BottomTabBarProps) {
           borderRadius: 20,
         },
         buttonActive: {
-          backgroundColor: 'rgba(255, 255, 255, 0.15)',
+          // Léger halo teinté accent plutôt qu'un blanc fixe — visible
+          // dans les deux modes, et cohérent avec l'icône active ci-dessous
+          // (elle aussi en theme.colors.accent).
+          backgroundColor: theme.withOpacity(theme.colors.accent, 0.15),
         },
         plusWrapper: {
           position: 'absolute',
@@ -167,9 +170,10 @@ export function BottomTabBar({ active }: BottomTabBarProps) {
           borderRadius: theme.borderRadius.full,
           backgroundColor: theme.colors.error,
           borderWidth: 1.5,
-          // Fixe, pas theme.colors.background : le badge se découpe sur la
-          // pilule flottante (toujours sombre), pas sur le fond de l'écran.
-          borderColor: '#1C1C1C',
+          // Le badge se découpe sur la pilule flottante (theme.colors.card
+          // désormais, plus une teinte sombre fixe), pas sur le fond de
+          // l'écran.
+          borderColor: theme.colors.card,
         },
       }),
     [theme],
@@ -179,7 +183,11 @@ export function BottomTabBar({ active }: BottomTabBarProps) {
     <View style={[styles.floatingWrapper, { bottom: insets.bottom + theme.spacing.sm }]} pointerEvents="box-none">
       <View style={styles.shadowWrapper}>
         <View style={styles.pill}>
-          <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
+          <BlurView
+            intensity={50}
+            tint={theme.mode === 'dark' ? 'dark' : 'light'}
+            style={StyleSheet.absoluteFill}
+          />
           <View style={[StyleSheet.absoluteFill, styles.tint]} />
 
           <View style={styles.content}>
@@ -187,8 +195,11 @@ export function BottomTabBar({ active }: BottomTabBarProps) {
               onPress={active === 'feed' ? undefined : () => router.push('/feed')}
               hitSlop={8}
               style={[styles.button, active === 'feed' && styles.buttonActive]}>
-              {/* Blanc fixe : icône posée sur la pilule toujours sombre. */}
-              <Feather name="home" size={22} color="#F5F2EE" />
+              <Feather
+                name="home"
+                size={22}
+                color={active === 'feed' ? theme.colors.accent : theme.colors.muted}
+              />
             </Pressable>
 
             <Pressable
