@@ -8,9 +8,13 @@
     "scheme": "recoapp",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.reco.app",
+      "buildNumber": "1"
     },
     "android": {
+      "package": "com.reco.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -44,6 +48,15 @@
         "expo-contacts",
         {
           "contactsPermission": "RECO a besoin d'accéder à tes contacts pour retrouver tes amis déjà inscrits."
+        }
+      ],
+      "expo-notifications",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
         }
       ]
     ],
