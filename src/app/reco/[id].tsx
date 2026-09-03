@@ -1,14 +1,17 @@
 import { Feather, MaterialIcons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   FlatList,
   Image,
   Keyboard,
   KeyboardAvoidingView,
   Linking,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -16,7 +19,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
 import { useTheme } from '@/context/ThemeContext';
@@ -27,6 +30,7 @@ import { fetchComments, postComment, subscribeToComments, type RecoComment } fro
 import { getFriendsList, type FriendListItem } from '@/lib/friends';
 import { goBack } from '@/lib/navigation';
 import { deleteReco, getRecoById, type FeedReco } from '@/lib/recos';
+import { REPORT_REASONS, submitReport, type ReportReason } from '@/lib/reports';
 
 function formatDate(iso: string): string {
   return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' }).format(
@@ -72,6 +76,7 @@ function getMentionQuery(text: string, cursor: number): string | null {
 export default function RecoDetailScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { id, focusComment } = useLocalSearchParams<{ id: string; focusComment?: string }>();
 
   // Le champ de commentaire s'agrandit avec le texte tapé, entre 1 et 4
@@ -83,6 +88,9 @@ export default function RecoDetailScreen() {
   const COMMENT_INPUT_VERTICAL_PADDING = theme.spacing.sm;
   const COMMENT_INPUT_MIN_HEIGHT = COMMENT_INPUT_LINE_HEIGHT + COMMENT_INPUT_VERTICAL_PADDING * 2;
   const COMMENT_INPUT_MAX_HEIGHT = COMMENT_INPUT_LINE_HEIGHT * 4 + COMMENT_INPUT_VERTICAL_PADDING * 2;
+  // Hauteur du header une fois le bouton "..." (44px) pris en compte —
+  // sert à positionner le menu contextuel juste en dessous (voir plus bas).
+  const HEADER_HEIGHT = 44 + theme.spacing.sm * 2;
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [recos, setRecos] = useState<FeedReco[]>([]);
@@ -96,8 +104,17 @@ export default function RecoDetailScreen() {
   const [posting, setPosting] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [selectedReason, setSelectedReason] = useState<ReportReason | null>(null);
+  const [reportDetails, setReportDetails] = useState('');
+  const [submittingReport, setSubmittingReport] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
   const commentsListRef = useRef<FlatList<RecoComment>>(null);
   const commentInputRef = useRef<TextInput>(null);
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { onToggleLike, onToggleDiscovered } = useRecoReactions(setRecos, currentUserId);
   const { onToggleSave } = useSavedRecos(setRecos, currentUserId);
@@ -182,6 +199,27 @@ export default function RecoDetailScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [comments.length]);
 
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    };
+  }, []);
+
+  /** Petit message temporaire (2s, avec un fondu) — utilisé après "Copier
+   * le lien" et après l'envoi d'un signalement. */
+  function showToast(message: string) {
+    setToastMessage(message);
+    toastOpacity.setValue(0);
+    Animated.timing(toastOpacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = setTimeout(() => {
+      Animated.timing(toastOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(
+        () => setToastMessage(null),
+      );
+    }, 2000);
+  }
+
   async function handleOpenLink() {
     if (!reco?.url) return;
     try {
@@ -228,6 +266,48 @@ export default function RecoDetailScreen() {
   function handleEdit() {
     if (!id) return;
     router.push({ pathname: '/add-reco', params: { id } });
+  }
+
+  /** Copie le lien de la reco (menu "..." — voir plus bas) — pas d'appel
+   * réseau, juste le presse-papier local, donc pas besoin d'état loading. */
+  async function handleCopyLink() {
+    setMenuVisible(false);
+
+    if (!reco?.url) {
+      showToast('Cette reco n’a pas de lien');
+      return;
+    }
+
+    await Clipboard.setStringAsync(reco.url);
+    showToast('Lien copié !');
+  }
+
+  function handleOpenReportModal() {
+    setMenuVisible(false);
+    setSelectedReason(null);
+    setReportDetails('');
+    setReportModalVisible(true);
+  }
+
+  function handleCloseReportModal() {
+    if (submittingReport) return;
+    setReportModalVisible(false);
+  }
+
+  async function handleSubmitReport() {
+    if (!currentUserId || !id || !selectedReason || submittingReport) return;
+
+    setSubmittingReport(true);
+    const { error } = await submitReport(currentUserId, id, selectedReason, reportDetails);
+    setSubmittingReport(false);
+
+    if (error) {
+      Alert.alert('Erreur', error);
+      return;
+    }
+
+    setReportModalVisible(false);
+    showToast('Signalement envoyé, merci 👍');
   }
 
   function handleFocusCommentInput() {
@@ -558,6 +638,142 @@ export default function RecoDetailScreen() {
         sendButtonTextDisabled: {
           color: theme.colors.muted,
         },
+        moreButton: {
+          width: 44,
+          height: 44,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        moreMenu: {
+          position: 'absolute',
+          right: theme.spacing.md,
+          minWidth: 190,
+          backgroundColor: theme.colors.card,
+          borderRadius: theme.borderRadius.md,
+          paddingVertical: theme.spacing.xs,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.2,
+          shadowRadius: 12,
+          elevation: 8,
+        },
+        moreMenuItem: {
+          paddingHorizontal: theme.spacing.md,
+          paddingVertical: theme.spacing.sm,
+        },
+        moreMenuItemText: {
+          color: theme.colors.text,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.sm,
+        },
+        moreMenuSeparator: {
+          height: StyleSheet.hairlineWidth,
+          backgroundColor: theme.colors.border,
+        },
+        toast: {
+          position: 'absolute',
+          left: theme.spacing.lg,
+          right: theme.spacing.lg,
+          alignItems: 'center',
+          // Fond sombre fixe (comme actionsBar / la pilule de navigation) —
+          // le toast reste lisible quel que soit le mode clair/sombre.
+          backgroundColor: 'rgba(28, 28, 28, 0.92)',
+          borderRadius: theme.borderRadius.md,
+          paddingHorizontal: theme.spacing.md,
+          paddingVertical: theme.spacing.sm,
+        },
+        toastText: {
+          // Blanc fixe : même raison que le fond ci-dessus.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontBody}_500Medium`,
+          fontSize: theme.fontSizes.sm,
+          textAlign: 'center',
+        },
+        reportModalContainer: {
+          flex: 1,
+          backgroundColor: theme.colors.background,
+        },
+        reportModalSafeArea: {
+          flex: 1,
+        },
+        reportModalHeader: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: theme.spacing.sm,
+          paddingHorizontal: theme.spacing.lg,
+          paddingVertical: theme.spacing.sm,
+        },
+        reportModalTitle: {
+          flex: 1,
+          color: theme.colors.text,
+          fontFamily: `${theme.fontTitle}_700Bold`,
+          fontSize: theme.fontSizes.lg,
+        },
+        reportModalContent: {
+          paddingHorizontal: theme.spacing.lg,
+          paddingTop: theme.spacing.sm,
+          gap: theme.spacing.sm,
+        },
+        reasonRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: theme.spacing.sm,
+          paddingHorizontal: theme.spacing.md,
+          paddingVertical: theme.spacing.md,
+          borderRadius: theme.borderRadius.md,
+          backgroundColor: theme.colors.card,
+          borderWidth: 1.5,
+          borderColor: theme.colors.card,
+        },
+        reasonRowSelected: {
+          borderColor: theme.colors.accent,
+        },
+        reasonEmoji: {
+          fontSize: theme.fontSizes.lg,
+        },
+        reasonLabel: {
+          flex: 1,
+          color: theme.colors.text,
+          fontFamily: `${theme.fontBody}_500Medium`,
+          fontSize: theme.fontSizes.md,
+        },
+        reportField: {
+          gap: theme.spacing.xs,
+          marginTop: theme.spacing.sm,
+        },
+        reportFieldLabel: {
+          color: theme.colors.muted,
+          fontFamily: `${theme.fontBody}_500Medium`,
+          fontSize: theme.fontSizes.xs,
+        },
+        reportDetailsInput: {
+          minHeight: 96,
+          borderRadius: theme.borderRadius.md,
+          backgroundColor: theme.colors.card,
+          padding: theme.spacing.md,
+          color: theme.colors.text,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.md,
+        },
+        reportSubmitButton: {
+          height: 52,
+          borderRadius: theme.borderRadius.md,
+          backgroundColor: theme.colors.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginTop: theme.spacing.md,
+        },
+        reportSubmitButtonDisabled: {
+          backgroundColor: theme.colors.border,
+        },
+        reportSubmitButtonText: {
+          // Blanc fixe, pas theme.colors.text : le fond du bouton reste
+          // l'accent rouge quel que soit le mode clair/sombre.
+          color: '#FFFFFF',
+          fontFamily: `${theme.fontBody}_600SemiBold`,
+          fontSize: theme.fontSizes.md,
+        },
         pressed: {
           opacity: 0.85,
         },
@@ -609,6 +825,12 @@ export default function RecoDetailScreen() {
                 <Feather name="trash-2" size={20} color={theme.colors.error} />
               </Pressable>
             </View>
+          )}
+
+          {!isOwn && (
+            <Pressable onPress={() => setMenuVisible(true)} style={styles.moreButton}>
+              <Feather name="more-horizontal" size={22} color={theme.colors.text} />
+            </Pressable>
           )}
         </View>
 
@@ -813,6 +1035,97 @@ export default function RecoDetailScreen() {
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      {menuVisible && (
+        <>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenuVisible(false)} />
+          <View style={[styles.moreMenu, { top: insets.top + HEADER_HEIGHT + theme.spacing.xs }]}>
+            <Pressable
+              onPress={handleOpenReportModal}
+              style={({ pressed }) => [styles.moreMenuItem, pressed && styles.pressed]}>
+              <Text style={styles.moreMenuItemText}>Signaler</Text>
+            </Pressable>
+            <View style={styles.moreMenuSeparator} />
+            <Pressable
+              onPress={handleCopyLink}
+              style={({ pressed }) => [styles.moreMenuItem, pressed && styles.pressed]}>
+              <Text style={styles.moreMenuItemText}>Copier le lien</Text>
+            </Pressable>
+          </View>
+        </>
+      )}
+
+      {toastMessage && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.toast,
+            { top: insets.top + HEADER_HEIGHT + theme.spacing.xs, opacity: toastOpacity },
+          ]}>
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
+
+      <Modal
+        visible={reportModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={handleCloseReportModal}>
+        <View style={styles.reportModalContainer}>
+          <StatusBar style={statusBarStyle} />
+          <SafeAreaView style={styles.reportModalSafeArea}>
+            <View style={styles.reportModalHeader}>
+              <Text style={styles.reportModalTitle}>Pourquoi tu signales cette reco ?</Text>
+              <Pressable onPress={handleCloseReportModal} hitSlop={12} style={styles.headerButton}>
+                <Feather name="x" size={22} color={theme.colors.text} />
+              </Pressable>
+            </View>
+
+            <View style={styles.reportModalContent}>
+              {REPORT_REASONS.map((reason) => {
+                const selected = selectedReason === reason.label;
+                return (
+                  <Pressable
+                    key={reason.label}
+                    onPress={() => setSelectedReason(reason.label)}
+                    style={[styles.reasonRow, selected && styles.reasonRowSelected]}>
+                    <Text style={styles.reasonEmoji}>{reason.emoji}</Text>
+                    <Text style={styles.reasonLabel}>{reason.label}</Text>
+                    {selected && <Feather name="check" size={20} color={theme.colors.accent} />}
+                  </Pressable>
+                );
+              })}
+
+              <View style={styles.reportField}>
+                <Text style={styles.reportFieldLabel}>Détails supplémentaires (optionnel)</Text>
+                <TextInput
+                  value={reportDetails}
+                  onChangeText={setReportDetails}
+                  placeholder="Ajoute des précisions si besoin..."
+                  placeholderTextColor={theme.colors.muted}
+                  style={styles.reportDetailsInput}
+                  multiline
+                  textAlignVertical="top"
+                />
+              </View>
+
+              <Pressable
+                onPress={handleSubmitReport}
+                disabled={!selectedReason || submittingReport}
+                style={[
+                  styles.reportSubmitButton,
+                  (!selectedReason || submittingReport) && styles.reportSubmitButtonDisabled,
+                ]}>
+                {submittingReport ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.reportSubmitButtonText}>Envoyer le signalement</Text>
+                )}
+              </Pressable>
+            </View>
+          </SafeAreaView>
+        </View>
+      </Modal>
     </View>
   );
 }
