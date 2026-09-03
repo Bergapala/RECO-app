@@ -3,6 +3,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -16,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
 import { useTheme } from '@/context/ThemeContext';
-import { getCurrentUserId, signOut } from '@/lib/auth';
+import { deleteAccount, getCurrentUserId, signOut } from '@/lib/auth';
 import { goBack } from '@/lib/navigation';
 import { registerForPushNotifications } from '@/lib/push';
 import { uploadProfilePhoto } from '@/lib/storage';
@@ -60,6 +62,8 @@ export default function SettingsScreen() {
   const [notifHour, setNotifHour] = useState<NotifHourSlot | null>(null);
   const [notifReactions, setNotifReactions] = useState(true);
   const [notifNewRecos, setNotifNewRecos] = useState(true);
+
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const hasLoadedRef = useRef(false);
 
@@ -158,6 +162,42 @@ export default function SettingsScreen() {
 
   async function handleSignOut() {
     await signOut();
+    router.replace('/login');
+  }
+
+  /**
+   * Confirmation en 2 étapes avant une action irréversible — chaque étape
+   * son propre Alert plutôt qu'un seul avec plus de boutons, pour laisser
+   * une vraie chance de revenir en arrière entre les deux.
+   */
+  function handleDeleteAccount() {
+    if (deletingAccount) return;
+
+    Alert.alert('Tu es sûr ? Cette action est irréversible.', undefined, [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'Continuer', style: 'destructive', onPress: confirmDeleteAccountStep2 },
+    ]);
+  }
+
+  function confirmDeleteAccountStep2() {
+    Alert.alert('Toutes tes données seront supprimées définitivement.', undefined, [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'Supprimer', style: 'destructive', onPress: performDeleteAccount },
+    ]);
+  }
+
+  async function performDeleteAccount() {
+    if (deletingAccount) return;
+
+    setDeletingAccount(true);
+    const { error } = await deleteAccount();
+    setDeletingAccount(false);
+
+    if (error) {
+      Alert.alert('Erreur', error);
+      return;
+    }
+
     router.replace('/login');
   }
 
@@ -322,6 +362,21 @@ export default function SettingsScreen() {
           fontFamily: `${theme.fontBody}_600SemiBold`,
           fontSize: theme.fontSizes.md,
         },
+        deleteAccountSeparator: {
+          height: StyleSheet.hairlineWidth,
+          backgroundColor: theme.colors.border,
+          marginTop: theme.spacing.md,
+        },
+        deleteAccountButton: {
+          height: 52,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        deleteAccountText: {
+          color: theme.colors.error,
+          fontFamily: `${theme.fontBody}_400Regular`,
+          fontSize: theme.fontSizes.sm,
+        },
         pressed: {
           opacity: 0.85,
         },
@@ -463,6 +518,19 @@ export default function SettingsScreen() {
             onPress={handleSignOut}
             style={({ pressed }) => [styles.signOutButton, pressed && styles.pressed]}>
             <Text style={styles.signOutText}>Se déconnecter</Text>
+          </Pressable>
+
+          <View style={styles.deleteAccountSeparator} />
+
+          <Pressable
+            onPress={handleDeleteAccount}
+            disabled={deletingAccount}
+            style={({ pressed }) => [styles.deleteAccountButton, pressed && styles.pressed]}>
+            {deletingAccount ? (
+              <ActivityIndicator color={theme.colors.error} />
+            ) : (
+              <Text style={styles.deleteAccountText}>Supprimer mon compte</Text>
+            )}
           </Pressable>
         </ScrollView>
       </SafeAreaView>

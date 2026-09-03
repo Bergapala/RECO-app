@@ -94,3 +94,55 @@ export async function signOut(): Promise<void> {
   if (!isSupabaseConfigured) return;
   await supabase.auth.signOut();
 }
+
+/**
+ * Supprime définitivement le compte de l'utilisateur connecté — voir
+ * src/app/settings.tsx pour le flux de confirmation en 2 étapes qui précède
+ * cet appel.
+ *
+ * Passe par la Edge Function "delete-user" (supabase/functions/delete-user)
+ * plutôt que par un appel direct depuis l'app : supprimer un compte
+ * Supabase Auth nécessite la clé service_role, qui ne doit jamais être
+ * embarquée côté client. La Edge Function identifie l'utilisateur à partir
+ * de son propre jeton de session (jamais d'un id transmis par le client) et
+ * appelle `auth.admin.deleteUser()` avec cette clé.
+ *
+ * Toutes les données applicatives (recos, commentaires, réactions, amis,
+ * enregistrements, profil `users`) sont supprimées automatiquement en
+ * cascade par Postgres une fois le compte Auth supprimé — `public.users.id`
+ * référence `auth.users(id) on delete cascade`, et tout le reste du schéma
+ * cascade à partir de `public.users`/`public.recos` (voir les migrations
+ * dans supabase/migrations). Aucune suppression manuelle table par table
+ * n'est donc nécessaire ici.
+ */
+export async function deleteAccount(): Promise<AuthResult> {
+  if (!isSupabaseConfigured) {
+    return { error: "Supabase n'est pas encore configuré (voir .env.example)." };
+  }
+
+  const { error } = await supabase.functions.invoke('delete-user', { method: 'POST' });
+
+  if (error) {
+    // FunctionsHttpError expose la réponse brute de la Edge Function (voir
+    // supabase/functions/delete-user/index.ts) — on essaie d'en extraire le
+    // message précis plutôt que le message générique de supabase-js ("Edge
+    // Function returned a non-2xx status code").
+    let message = error.message;
+    const context = (error as { context?: Response }).context;
+    if (context) {
+      try {
+        const body = await context.json();
+        if (body?.error) message = body.error;
+      } catch {
+        // Corps non-JSON ou déjà consommé : on garde le message générique.
+      }
+    }
+    return { error: message };
+  }
+
+  // Le compte Auth n'existe plus côté serveur à ce stade — on nettoie aussi
+  // la session locale (jetons en Keychain/Keystore) pour repartir sur un
+  // état propre plutôt que de laisser une session désormais invalide.
+  await supabase.auth.signOut();
+  return { error: null };
+}
