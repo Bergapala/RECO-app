@@ -1,6 +1,22 @@
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 /**
+ * Levée par getBlockedUserIds/isBlockedEitherWay quand la vérification de
+ * blocage échoue — volontairement fail-closed plutôt que de renvoyer `[]`
+ * silencieusement : un appelant qui ignorerait cette erreur planterait
+ * plutôt que d'afficher, par exemple, le profil de quelqu'un qui a
+ * peut-être bloqué l'utilisateur courant. Chaque appelant (feed, recherche,
+ * synchro contacts, garde d'affichage de profil) décide explicitement du
+ * comportement sûr à adopter dans ce cas — voir leurs try/catch respectifs.
+ */
+export class BlockCheckError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'BlockCheckError';
+  }
+}
+
+/**
  * Ids de tous les utilisateurs impliqués dans un blocage avec `userId`,
  * qu'il en soit l'auteur ou la cible — grâce à la policy RLS symétrique
  * "blocked_users_select_involved" (comme "friends_select_involved" sur la
@@ -8,6 +24,9 @@ import { isSupabaseConfigured, supabase } from '@/lib/supabase';
  * (pour filtrer mon propre feed/ma recherche) et, appelée depuis l'autre
  * côté, à "qui m'a bloqué" — voir src/lib/recos.ts et src/lib/friends.ts
  * qui l'utilisent pour exclure ces ids.
+ *
+ * Lève BlockCheckError en cas d'échec plutôt que de renvoyer `[]` — voir
+ * ce type ci-dessus.
  */
 export async function getBlockedUserIds(userId: string): Promise<string[]> {
   if (!isSupabaseConfigured) return [];
@@ -17,14 +36,19 @@ export async function getBlockedUserIds(userId: string): Promise<string[]> {
     .select('blocker_id, blocked_id')
     .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`);
 
-  if (error || !data) return [];
+  if (error) {
+    throw new BlockCheckError(error.message);
+  }
+  if (!data) {
+    throw new BlockCheckError('Réponse vide lors de la vérification des blocages.');
+  }
 
   return data.map((row) => (row.blocker_id === userId ? row.blocked_id : row.blocker_id));
 }
 
 /** `true` si l'un des deux a bloqué l'autre, dans n'importe quel sens —
  * voir src/app/profile/[id].tsx (le profil d'un utilisateur bloqué n'est
- * plus consultable). */
+ * plus consultable). Propage BlockCheckError comme getBlockedUserIds. */
 export async function isBlockedEitherWay(userId: string, otherId: string): Promise<boolean> {
   const blockedIds = await getBlockedUserIds(userId);
   return blockedIds.includes(otherId);

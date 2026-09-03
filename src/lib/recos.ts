@@ -1,4 +1,4 @@
-import { getBlockedUserIds } from '@/lib/blocks';
+import { BlockCheckError, getBlockedUserIds } from '@/lib/blocks';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 export type NewReco = {
@@ -95,17 +95,27 @@ async function getAcceptedFriendIds(userId: string): Promise<string[]> {
  * `currentUserId` ait bloqué l'auteur, ou que l'auteur l'ait bloqué (voir
  * getBlockedUserIds, symétrique). En pratique, bloquer quelqu'un supprime
  * déjà la relation d'amitié (trigger SQL), donc ce filtre est surtout une
- * défense en profondeur plutôt que le seul mécanisme d'exclusion.
+ * défense en profondeur plutôt que le seul mécanisme d'exclusion — mais si
+ * la vérification elle-même échoue (BlockCheckError), on choisit quand
+ * même de fermer plutôt que d'ouvrir : feed vide plutôt que non filtré.
  */
 export async function fetchFeedRecos(currentUserId: string | null): Promise<FeedReco[]> {
   if (!isSupabaseConfigured || !currentUserId) {
     return [];
   }
 
-  const [friendIds, blockedIds] = await Promise.all([
-    getAcceptedFriendIds(currentUserId),
-    getBlockedUserIds(currentUserId),
-  ]);
+  let friendIds: string[];
+  let blockedIds: string[];
+  try {
+    [friendIds, blockedIds] = await Promise.all([
+      getAcceptedFriendIds(currentUserId),
+      getBlockedUserIds(currentUserId),
+    ]);
+  } catch (error) {
+    if (error instanceof BlockCheckError) return [];
+    throw error;
+  }
+
   const visibleFriendIds = friendIds.filter((id) => !blockedIds.includes(id));
   if (visibleFriendIds.length === 0) {
     return [];

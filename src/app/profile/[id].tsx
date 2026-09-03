@@ -11,7 +11,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useRecoReactions } from '@/hooks/use-reco-reactions';
 import { useSavedRecos } from '@/hooks/use-saved-recos';
 import { getCurrentUserId } from '@/lib/auth';
-import { blockUser, isBlockedEitherWay } from '@/lib/blocks';
+import { BlockCheckError, blockUser, isBlockedEitherWay } from '@/lib/blocks';
 import {
   getCompatibilityScore,
   getCompatibilitySubtitle,
@@ -60,12 +60,26 @@ export default function FriendProfileScreen() {
       // pratique cet écran ne devrait plus être atteignable pour un
       // utilisateur bloqué (feed/recherche/amis l'excluent déjà), mais un
       // lien direct reste possible.
+      //
+      // Fail-closed : si la vérification de blocage échoue (BlockCheckError),
+      // on traite comme bloqué plutôt que d'afficher un profil qu'on n'a
+      // pas pu confirmer sûr — sans distinguer ce cas d'un vrai blocage
+      // dans le message affiché, pour ne rien révéler de plus.
       if (userId) {
-        const blocked = await isBlockedEitherWay(userId, id);
-        if (blocked) {
-          setIsBlocked(true);
-          setLoading(false);
-          return;
+        try {
+          const blocked = await isBlockedEitherWay(userId, id);
+          if (blocked) {
+            setIsBlocked(true);
+            setLoading(false);
+            return;
+          }
+        } catch (error) {
+          if (error instanceof BlockCheckError) {
+            setIsBlocked(true);
+            setLoading(false);
+            return;
+          }
+          throw error;
         }
       }
 

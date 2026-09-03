@@ -4,19 +4,27 @@ export type UserProfile = {
   id: string;
   prenom: string | null;
   photoUrl: string | null;
-  phone: string | null;
   username: string;
   /** Nombre de semaines consécutives avec au moins une reco postée — voir
    * le trigger update_streak_on_new_reco (migration streak_and_saved_recos). */
   streakCount: number;
 };
 
+/**
+ * `phone` a volontairement disparu de ce type/de cette requête — cet appel
+ * sert aussi bien à afficher son propre profil qu'à consulter celui d'un
+ * autre utilisateur (voir src/app/profile/[id].tsx), et la migration
+ * restrict_sensitive_columns retire de toute façon le droit de lire
+ * phone/push_token via une requête directe sur `users`, y compris pour sa
+ * propre ligne. Pour savoir si l'utilisateur courant a déjà un numéro
+ * enregistré, voir hasOwnPhone() ci-dessous — jamais le numéro lui-même.
+ */
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
   if (!isSupabaseConfigured) return null;
 
   const { data, error } = await supabase
     .from('users')
-    .select('id, prenom, photo_url, phone, username, streak_count')
+    .select('id, prenom, photo_url, username, streak_count')
     .eq('id', userId)
     .maybeSingle();
 
@@ -26,10 +34,26 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
     id: data.id,
     prenom: data.prenom,
     photoUrl: data.photo_url,
-    phone: data.phone,
     username: data.username,
     streakCount: data.streak_count ?? 0,
   };
+}
+
+/**
+ * `true` si l'utilisateur courant a déjà un numéro de téléphone enregistré
+ * — voir src/app/complete-profile.tsx, qui n'a besoin que de ce booléen
+ * (masquer ou non le champ de saisie), jamais du numéro en clair. Passe
+ * par la fonction security definer `current_user_has_phone` (voir la
+ * migration restrict_sensitive_columns) puisqu'une lecture directe de la
+ * colonne `phone` n'est plus autorisée, même pour sa propre ligne.
+ */
+export async function hasOwnPhone(): Promise<boolean> {
+  if (!isSupabaseConfigured) return false;
+
+  const { data, error } = await supabase.rpc('current_user_has_phone');
+  if (error) return false;
+
+  return data ?? false;
 }
 
 export type ProfileStats = {

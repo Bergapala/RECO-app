@@ -21,6 +21,7 @@ import { getCurrentUserId } from '@/lib/auth';
 import { uploadProfilePhoto } from '@/lib/storage';
 import {
   getUserProfile,
+  hasOwnPhone,
   isUsernameAvailable,
   isValidUsernameFormat,
   updatePhone,
@@ -49,10 +50,13 @@ export default function CompleteProfileScreen() {
     getCurrentUserId().then(async (userId) => {
       setCurrentUserId(userId);
       if (userId) {
-        const profile = await getUserProfile(userId);
+        const [profile, existingPhone] = await Promise.all([
+          getUserProfile(userId),
+          hasOwnPhone(),
+        ]);
         setPrenom(profile?.prenom ?? '');
         setPhotoUrl(profile?.photoUrl ?? null);
-        setHasExistingPhone(Boolean(profile?.phone));
+        setHasExistingPhone(existingPhone);
         // Le username n'est volontairement pas pré-rempli : celui déjà en
         // base à ce stade n'est qu'un placeholder généré à l'inscription
         // (voir la migration username_and_friend_requests), pas un vrai

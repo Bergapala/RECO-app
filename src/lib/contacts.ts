@@ -1,6 +1,6 @@
 import * as Contacts from 'expo-contacts';
 
-import { getBlockedUserIds } from '@/lib/blocks';
+import { BlockCheckError, getBlockedUserIds } from '@/lib/blocks';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 export type ContactMatch = {
@@ -20,6 +20,13 @@ function normalizePhone(raw: string): string {
  * `null` = permission refusée. `[]` = permission accordée mais aucun
  * contact du téléphone n'a de compte RECO. Sinon, la liste des comptes
  * trouvés.
+ *
+ * La comparaison numéro-par-numéro se fait côté base (RPC
+ * `match_users_by_phone`, voir la migration restrict_sensitive_columns)
+ * plutôt qu'en téléchargeant le numéro de tout le monde vers le client
+ * pour comparer localement : aucun numéro de téléphone d'un autre
+ * utilisateur ne transite jamais côté client, et `privacy_findable_by_phone`
+ * est appliqué directement dans la requête plutôt qu'après coup en JS.
  */
 export async function findContactsOnReco(
   currentUserId: string | null,
@@ -42,31 +49,31 @@ export async function findContactsOnReco(
 
   if (phones.size === 0) return [];
 
-  const { data: usersWithPhone, error } = await supabase
-    .from('users')
-    .select('id, prenom, photo_url, phone, privacy_findable_by_phone')
-    .not('phone', 'is', null);
+  type PhoneMatchRow = { id: string; prenom: string | null; photo_url: string | null };
 
-  if (error || !usersWithPhone) return [];
+  const { data: matches, error } = await supabase.rpc('match_users_by_phone', {
+    phone_numbers: Array.from(phones),
+  });
+
+  if (error || !matches) return [];
 
   // Exclut les utilisateurs bloqués — dans les deux sens — pour cohérence
   // avec searchUsersByName (voir src/lib/friends.ts) : la synchronisation
   // des contacts est un autre chemin vers le même flux d'ajout d'amis.
-  const blockedIds = currentUserId ? await getBlockedUserIds(currentUserId) : [];
+  // (Le RPC exclut déjà currentUserId lui-même côté base.) Fail-closed : si
+  // la vérification échoue, aucun résultat plutôt qu'un résultat non filtré.
+  let blockedIds: string[] = [];
+  if (currentUserId) {
+    try {
+      blockedIds = await getBlockedUserIds(currentUserId);
+    } catch (error) {
+      if (error instanceof BlockCheckError) return [];
+      throw error;
+    }
+  }
 
-  return usersWithPhone
-    .filter(
-      (user) =>
-        user.id !== currentUserId &&
-        user.phone &&
-        // `!== false` plutôt que `=== true` : les lignes déjà en base avant
-        // l'ajout de cette colonne (défaut true, mais un null resterait
-        // possible sur une valeur jamais réécrite) doivent rester
-        // trouvables par défaut, pas disparaître silencieusement.
-        user.privacy_findable_by_phone !== false &&
-        phones.has(normalizePhone(user.phone)) &&
-        !blockedIds.includes(user.id),
-    )
+  return (matches as PhoneMatchRow[])
+    .filter((user) => !blockedIds.includes(user.id))
     .map((user) => ({ id: user.id, prenom: user.prenom, photoUrl: user.photo_url }));
 }
 

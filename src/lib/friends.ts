@@ -1,4 +1,4 @@
-import { getBlockedUserIds } from '@/lib/blocks';
+import { BlockCheckError, getBlockedUserIds } from '@/lib/blocks';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 export type UserSearchResult = {
@@ -7,6 +7,20 @@ export type UserSearchResult = {
   photoUrl: string | null;
   username: string;
 };
+
+/**
+ * Échappe les caractères qui ont un sens spécial dans la syntaxe de filtre
+ * PostgREST utilisée par `.or()` (virgule = séparateur de conditions,
+ * parenthèses = regroupement) avant d'interpoler du texte tapé par
+ * l'utilisateur. La valeur est déjà entourée de guillemets doubles dans
+ * `searchUsersByName` ci-dessous (ce qui neutralise virgules/parenthèses
+ * à l'intérieur de la valeur) — il reste à échapper les guillemets et
+ * antislashs littéraux pour ne pas refermer la valeur prématurément ou
+ * casser l'échappement lui-même.
+ */
+function escapePostgrestFilterValue(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
 
 /**
  * Cherche des utilisateurs par prénom OU par username (recherche
@@ -37,11 +51,13 @@ export async function searchUsersByName(
   }
 
   const usernameQuery = trimmed.startsWith('@') ? trimmed.slice(1) : trimmed;
+  const safePrenom = escapePostgrestFilterValue(trimmed);
+  const safeUsername = escapePostgrestFilterValue(usernameQuery);
 
   let request = supabase
     .from('users')
     .select('id, prenom, photo_url, username')
-    .or(`prenom.ilike."%${trimmed}%",username.ilike."%${usernameQuery}%"`)
+    .or(`prenom.ilike."%${safePrenom}%",username.ilike."%${safeUsername}%"`)
     .limit(20);
 
   if (currentUserId) {
@@ -62,7 +78,16 @@ export async function searchUsersByName(
 
   if (!currentUserId) return results;
 
-  const blockedIds = await getBlockedUserIds(currentUserId);
+  // Fail-closed : si on ne peut pas vérifier les blocages, mieux vaut ne
+  // renvoyer aucun résultat que d'en montrer potentiellement un non filtré.
+  let blockedIds: string[];
+  try {
+    blockedIds = await getBlockedUserIds(currentUserId);
+  } catch (error) {
+    if (error instanceof BlockCheckError) return [];
+    throw error;
+  }
+
   if (blockedIds.length === 0) return results;
 
   return results.filter((user) => !blockedIds.includes(user.id));
