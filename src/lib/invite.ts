@@ -1,8 +1,6 @@
 import { Share } from 'react-native';
 
-// TODO: remplacer par le vrai lien une fois l'app publiée sur l'App Store
-// (voir la préparation du build App Store).
-const APP_STORE_URL = 'https://apps.apple.com/app/reco';
+import { APP_STORE_URL } from '@/config/links';
 
 /** Ouvre le Share Sheet natif avec le message d'invitation RECO — utilisé
  * depuis l'écran Ajout d'amis (notamment l'état vide "aucun contact

@@ -44,7 +44,7 @@ export async function findContactsOnReco(
 
   const { data: usersWithPhone, error } = await supabase
     .from('users')
-    .select('id, prenom, photo_url, phone')
+    .select('id, prenom, photo_url, phone, privacy_findable_by_phone')
     .not('phone', 'is', null);
 
   if (error || !usersWithPhone) return [];
@@ -59,8 +59,30 @@ export async function findContactsOnReco(
       (user) =>
         user.id !== currentUserId &&
         user.phone &&
+        // `!== false` plutôt que `=== true` : les lignes déjà en base avant
+        // l'ajout de cette colonne (défaut true, mais un null resterait
+        // possible sur une valeur jamais réécrite) doivent rester
+        // trouvables par défaut, pas disparaître silencieusement.
+        user.privacy_findable_by_phone !== false &&
         phones.has(normalizePhone(user.phone)) &&
         !blockedIds.includes(user.id),
     )
     .map((user) => ({ id: user.id, prenom: user.prenom, photoUrl: user.photo_url }));
+}
+
+/** État actuel de la permission Contacts iOS, sans déclencher la popup de
+ * demande — pour refléter l'état réel du toggle "Synchroniser mes
+ * contacts" dans src/app/settings/privacy/index.tsx (au focus de l'écran,
+ * pour capter aussi un changement fait depuis Réglages iOS). */
+export async function getContactsPermissionStatus(): Promise<Contacts.PermissionStatus> {
+  const { status } = await Contacts.getPermissionsAsync();
+  return status;
+}
+
+/** Déclenche la popup de permission Contacts iOS et renvoie le statut réel
+ * obtenu (jamais optimiste : si l'utilisateur refuse, le toggle doit
+ * revenir à l'état réel plutôt que rester activé). */
+export async function requestContactsPermission(): Promise<Contacts.PermissionStatus> {
+  const { status } = await Contacts.requestPermissionsAsync();
+  return status;
 }

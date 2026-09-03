@@ -139,7 +139,9 @@ export type NotificationPrefs = {
   notifDay: number | null; // 0 = lundi ... 6 = dimanche
   notifHour: NotifHourSlot | null;
   notifReactions: boolean;
+  notifComments: boolean;
   notifNewRecos: boolean;
+  notifFriendRequests: boolean;
 };
 
 const DEFAULT_PREFS: NotificationPrefs = {
@@ -147,7 +149,9 @@ const DEFAULT_PREFS: NotificationPrefs = {
   notifDay: null,
   notifHour: null,
   notifReactions: true,
+  notifComments: true,
   notifNewRecos: true,
+  notifFriendRequests: true,
 };
 
 export async function getNotificationPrefs(userId: string): Promise<NotificationPrefs> {
@@ -155,7 +159,9 @@ export async function getNotificationPrefs(userId: string): Promise<Notification
 
   const { data, error } = await supabase
     .from('users')
-    .select('notif_enabled, notif_day, notif_hour, notif_reactions, notif_new_recos')
+    .select(
+      'notif_enabled, notif_day, notif_hour, notif_reactions, notif_comments, notif_new_recos, notif_friend_requests',
+    )
     .eq('id', userId)
     .maybeSingle();
 
@@ -166,7 +172,9 @@ export async function getNotificationPrefs(userId: string): Promise<Notification
     notifDay: data.notif_day,
     notifHour: data.notif_hour as NotifHourSlot | null,
     notifReactions: data.notif_reactions ?? true,
+    notifComments: data.notif_comments ?? true,
     notifNewRecos: data.notif_new_recos ?? true,
+    notifFriendRequests: data.notif_friend_requests ?? true,
   };
 }
 
@@ -183,7 +191,61 @@ export async function updateNotificationPrefs(
   if (edits.notifDay !== undefined) payload.notif_day = edits.notifDay;
   if (edits.notifHour !== undefined) payload.notif_hour = edits.notifHour;
   if (edits.notifReactions !== undefined) payload.notif_reactions = edits.notifReactions;
+  if (edits.notifComments !== undefined) payload.notif_comments = edits.notifComments;
   if (edits.notifNewRecos !== undefined) payload.notif_new_recos = edits.notifNewRecos;
+  if (edits.notifFriendRequests !== undefined) {
+    payload.notif_friend_requests = edits.notifFriendRequests;
+  }
+
+  const { error } = await supabase.from('users').update(payload).eq('id', userId);
+  return { error: error?.message ?? null };
+}
+
+export type PrivacyPrefs = {
+  /** Autorise mes amis à voir ma liste d'amis. */
+  showFriendsToFriends: boolean;
+  /** Apparaître dans les résultats de synchronisation de contacts des
+   * autres utilisateurs — voir findContactsOnReco dans src/lib/contacts.ts. */
+  findableByPhone: boolean;
+};
+
+const DEFAULT_PRIVACY_PREFS: PrivacyPrefs = {
+  showFriendsToFriends: true,
+  findableByPhone: true,
+};
+
+export async function getPrivacyPrefs(userId: string): Promise<PrivacyPrefs> {
+  if (!isSupabaseConfigured) return DEFAULT_PRIVACY_PREFS;
+
+  const { data, error } = await supabase
+    .from('users')
+    .select('privacy_show_friends_to_friends, privacy_findable_by_phone')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error || !data) return DEFAULT_PRIVACY_PREFS;
+
+  return {
+    showFriendsToFriends: data.privacy_show_friends_to_friends ?? true,
+    findableByPhone: data.privacy_findable_by_phone ?? true,
+  };
+}
+
+export async function updatePrivacyPrefs(
+  userId: string,
+  edits: Partial<PrivacyPrefs>,
+): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured) {
+    return { error: "Supabase n'est pas encore configuré." };
+  }
+
+  const payload: Record<string, unknown> = {};
+  if (edits.showFriendsToFriends !== undefined) {
+    payload.privacy_show_friends_to_friends = edits.showFriendsToFriends;
+  }
+  if (edits.findableByPhone !== undefined) {
+    payload.privacy_findable_by_phone = edits.findableByPhone;
+  }
 
   const { error } = await supabase.from('users').update(payload).eq('id', userId);
   return { error: error?.message ?? null };
