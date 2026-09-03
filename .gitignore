@@ -43,3 +43,7 @@ example
 # generated native folders
 /ios
 /android
+
+# Supabase CLI local state (lien de projet, cache — pas de secret dedans,
+# mais propre à chaque machine)
+supabase/.temp/
